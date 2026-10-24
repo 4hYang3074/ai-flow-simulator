@@ -20,7 +20,7 @@ type Props = { flow: FlowLog | null; onShown?: (event: FlowEvent) => void };
  * route on the right. Each finished step flies from the card to its row.
  */
 export function FlowPanel({ flow, onShown }: Props) {
-  const [settings, setSettings] = useState<PlaybackSettings>({ speed: 0.5, stepMode: false });
+  const [settings, setSettings] = useState<PlaybackSettings>({ speed: 1, stepMode: false });
   const flights = useStageFlights(flow?.turnId);
   const shown = useCallback(
     (event: FlowEvent) => {
