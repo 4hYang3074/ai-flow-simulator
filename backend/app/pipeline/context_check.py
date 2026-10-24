@@ -64,6 +64,8 @@ CHECK_PROMPT = (
     "Find the words in the NEW MESSAGE that point to something said earlier: pronouns (it, that, 它, 那个), "
     "phrases like 'the two', 'that plan', '那两个', '这个方案', or a missing subject that only earlier talk can fill "
     "('why?', 'more simply', '为什么', '再简单点').\n"
+    "Placeholders such as [PHONE_1] or [EMAIL_1] are private details the user gave in this message: "
+    "they never point to anything earlier.\n"
     "If the message is complete on its own, reply {\"refers_to_earlier\": false, \"references\": []}.\n"
     "Otherwise list each such phrase, and for each copy from the CONTEXT the exact short text it refers to "
     "(word for word). If the CONTEXT does not contain it, use an empty quote.\n"
@@ -77,6 +79,7 @@ MIN_QUOTE_CHARS = 4
 WORDS_FOUND_SHARE = 0.7
 
 _NOT_WORD = re.compile(r"[^0-9a-z一-鿿]+")
+_PLACEHOLDER = re.compile(r"\[?[A-Z]+_\d+\]?")
 
 
 def _squash(text: str) -> str:
@@ -126,6 +129,10 @@ async def _judge(ctx: TurnContext, size: int) -> dict[str, Any]:
                     continue
                 phrase = str(ref.get("phrase") or "").strip()[:MAX_PHRASE_CHARS]
                 quote = str(ref.get("quote") or "").strip()
+                # A redaction placeholder is the user's own detail, not a
+                # pointer to earlier talk (seen: "[PHONE_1]" made a turn ask).
+                if _PLACEHOLDER.search(phrase):
+                    continue
                 key = _squash(quote)
                 # Word for word, or (for a quote of several words, such as
                 # "Go 和 Rust" for "Rust 还是 Go") most of its words of two or

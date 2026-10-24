@@ -369,6 +369,19 @@ def test_a_quote_of_several_words_may_change_their_order(store):
     assert summary(events, "context_check")["outcome"] == "sufficient"
 
 
+def test_redaction_placeholders_are_not_pointers(store):
+    """Seen with the real model: "[PHONE_1]" was listed as a reference and the turn asked."""
+
+    llm = FakeLLM(["好的"])
+    run("你好呀，今天天气不错", llm, store)
+    llm.check_replies = [
+        '{"refers_to_earlier": true, "references": [{"phrase": "[PHONE_1]", "quote": ""}, {"phrase": "EMAIL_1", "quote": ""}]}'
+    ]
+    events = run("我的手机号是 13812345678，帮我写一句简短的自我介绍", llm, store)
+    assert summary(events, "context_check")["outcome"] == "sufficient"
+    assert events[-1]["type"] == "final" and routes(events)[-1] == "basic"
+
+
 def test_a_very_short_quote_proves_nothing(store):
     llm = FakeLLM(["为什么推荐它？因为简单"])
     run("推荐一本书", llm, store)
