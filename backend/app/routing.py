@@ -49,6 +49,23 @@ REFERENCE_CUE = re.compile(
     re.I,
 )
 
+# Words that always point back, wherever they appear.
+_BACK_POINTER = re.compile(
+    r"刚才|剛才|上面|前面|之前|上一个|上一条|你说的|\b(?:previous|prior|earlier|above|last one)\b", re.I
+)
+# Pronouns point back only when they open the message ("那它和…有什么区别").
+# Later in the message they usually refer to something said in the same
+# message: in "我的猫叫小白，它三岁了", 它 is 小白.
+_PRONOUN = re.compile(r"那个|这个|那些|这些|這個|那個|它们|它|\b(?:that one|this one|the same)\b", re.I)
+_FIRST_CLAUSE = re.compile(r"^[^，,。.！!？?；;\n]*")
+
+
+def reference_cue(message: str) -> re.Match[str] | None:
+    """The word that makes this message point back to earlier context, if any."""
+
+    first = _FIRST_CLAUSE.match(message.strip())
+    return _BACK_POINTER.search(message) or (_PRONOUN.search(first.group(0)) if first else None)
+
 TOPIC_SHIFT = re.compile(r"新话题|换个话题|换个主题|另一个问题|\bnew (?:topic|subject)\b|\bswitch(?:ing)? (?:the )?(?:topic|subject)\b", re.I)
 
 _EN_ORDINALS = {"first": 1, "1st": 1, "second": 2, "2nd": 2, "third": 3, "3rd": 3, "fourth": 4, "4th": 4, "fifth": 5, "5th": 5}
@@ -98,7 +115,7 @@ def decide(message: str, has_history: bool) -> RuleDecision:
         # A list position is a reference even with no history: then it cannot
         # be resolved, and the reference stage will ask instead of guessing.
         return RuleDecision("reference", "ordinal_cue", m.group(0))
-    if m := REFERENCE_CUE.search(message):
+    if m := reference_cue(message):
         # "这个" in a first message ("这个世界上最高的山…") points at nothing
         # earlier; with no history it is an ordinary question.
         if has_history:

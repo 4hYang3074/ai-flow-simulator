@@ -56,6 +56,8 @@ def test_a_statement_sentence_after_a_question_is_kept():
         ("第二个呢？", False, "reference", "ordinal_cue"),
         ("the second one please", True, "reference", "ordinal_cue"),
         ("那它和传统数据库有什么区别？", True, "reference", "reference_cue"),
+        ("我叫阿明，我的猫叫小白，它三岁了", True, None, None),
+        ("帮我再解释一下，刚才说的向量", True, "reference", "reference_cue"),
         ("这个世界上最高的山是什么", False, None, None),
         ("换个话题，推荐一部电影", True, "basic", "topic_shift"),
         ("什么是向量数据库？", True, None, None),
