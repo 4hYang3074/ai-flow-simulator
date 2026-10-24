@@ -104,6 +104,20 @@ export function stageFacts(stage: StageId, summary: Summary): Fact[] {
         { label: "相似度阈值 Threshold", value: plain(summary.threshold) },
         { label: "向量化耗时 Embedding", value: ms(summary.embed_ms) },
       ];
+    case "context_check": {
+      const attempts = Array.isArray(summary.attempts) ? summary.attempts : [];
+      if (summary.checked_by === "skipped") {
+        return [
+          { label: "结果 Result", value: "不用检查 · not needed" },
+          { label: "原因 Reason", value: SKIP_REASONS[String(summary.skip_reason)] ?? plain(summary.skip_reason) },
+        ];
+      }
+      return [
+        { label: "结果 Result", value: CHECK_OUTCOMES[String(summary.outcome)] ?? plain(summary.outcome) },
+        { label: "检查过的轮数 Tried", value: attempts.map((a: { pairs: number }) => `${a.pairs} 轮`).join(" → ") || "—" },
+        { label: "最终用的轮数 Window", value: `${plain(summary.window)} 轮` },
+      ];
+    }
     case "context":
       return [
         { label: "带编号的材料 Materials", value: `${count(summary.materials)} 条` },
@@ -220,6 +234,32 @@ export const MEMORIZE_NOTES: Record<string, string> = {
   nothing_lasting: "这句话里没有需要长期记住的事。· Nothing worth keeping long term.",
   model_unavailable: "模型不可用，这一轮没有提取。· Model unavailable; nothing extracted.",
 };
+
+const SKIP_REASONS: Record<string, string> = {
+  no_history: "这是第一句话，前面没有对话",
+  resolved_by_rule: "「第几个」已经按规则在列表里找到了",
+  correction: "纠正指的就是上一轮",
+  standalone: "这是一个完整的新问题",
+};
+
+const CHECK_OUTCOMES: Record<string, string> = {
+  sufficient: "3 轮就够了 · enough",
+  expanded: "3 轮不够，扩到 5 轮后够了 · widened to 5",
+  clarify: "5 轮也不够，改为反问 · asking instead",
+  unchecked: "模型不可用，没检查 · not checked",
+};
+
+export type CheckAttempt = {
+  pairs: number;
+  sufficient: boolean;
+  invalid?: boolean;
+  references: { phrase: string; quote: string; found: boolean }[];
+};
+
+export function checkAttempts(summary: Summary): CheckAttempt[] {
+  const raw = summary?.attempts;
+  return Array.isArray(raw) ? raw.filter((a) => !!a && typeof a.pairs === "number") : [];
+}
 
 export const RECALL_NOTES: Record<string, string> = {
   no_older_pairs: "还没有更早的对话可以检索：目前的对话都在短期记忆里。· Nothing older to search yet.",

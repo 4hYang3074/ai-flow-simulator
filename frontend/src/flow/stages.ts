@@ -29,7 +29,7 @@ export const ROUTES: Record<RouteId, { zh: string; en: string; explain: string }
   clarify: {
     zh: "需要澄清",
     en: "Clarify",
-    explain: "你指的东西在前文里找不到。系统不乱猜，直接反问你，不调用模型。",
+    explain: "你指的东西在最近 3 轮、再扩到 5 轮的对话里都找不到。系统不乱猜，直接反问你，不调用回答模型。",
   },
 };
 
@@ -86,6 +86,12 @@ export const STAGES: Record<StageId, StageCopy> = {
     en: "Memory Recall",
     explain: "从三层记忆里找相关内容：最近几轮对话、长期摘要、用 embedding 做的语义检索。",
     realWorld: "真实系统把最近对话缓存在 Redis，摘要里每条事实都要能指回原文。",
+  },
+  context_check: {
+    zh: "上下文检查",
+    en: "Context Check",
+    explain: "先看最近 3 轮对话够不够理解你这句话：让模型指出你话里指向前文的词（「那两个」「它」），并原文引用它指的内容，代码核对引用确实在前文里。3 轮不够就扩到 5 轮；5 轮还不够，就直接问你，绝不靠猜。",
+    realWorld: "完整的新问题（例如「什么是向量数据库？」）、找到了列表项的「第二个」、纠正上一轮，这几种不用检查。",
   },
   context: {
     zh: "上下文组装",

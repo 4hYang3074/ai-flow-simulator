@@ -50,7 +50,18 @@ class TurnContext:
     route_change: RouteId | None = None
     vault: Vault = field(default_factory=Vault)
     small_talk: SmallTalkKind | None = None
+    # Every stored pair of this conversation, oldest first (memory recall loads it).
+    history: list[Pair] = field(default_factory=list)
+    # How many recent pairs are replayed word for word: 3, or 5 when 3 were
+    # not enough (see the context check).
+    window: int = 3
+    # Whether what the message refers to still needs the model's check, or a
+    # rule has already pinned it down (a list item found by position).
+    needs_check: bool = True
     recent: list[Pair] = field(default_factory=list)
+    # What the context check found the message's pointers refer to, as
+    # (phrase, quoted earlier text), repeated right before the message.
+    resolved: list[tuple[str, str]] = field(default_factory=list)
     recalled: list[Scored] = field(default_factory=list)
     materials: list[Material] = field(default_factory=list)
     prompt: list[dict[str, str]] = field(default_factory=list)
@@ -68,3 +79,12 @@ class TurnContext:
         material = Material(f"M{len(self.materials) + 1}", kind, text, source_id)
         self.materials.append(material)
         return material
+
+    def drop_memories_in_window(self) -> None:
+        """Recalled pairs that are now replayed in full would appear twice:
+        drop them and renumber the labels."""
+
+        shown = {p.user_id for p in self.recent}
+        kept = [m for m in self.materials if not (m.kind == "memory" and m.source_id in shown)]
+        self.materials = [Material(f"M{i}", m.kind, m.text, m.source_id) for i, m in enumerate(kept, 1)]
+        self.recalled = [s for s in self.recalled if s.pair.user_id not in shown]

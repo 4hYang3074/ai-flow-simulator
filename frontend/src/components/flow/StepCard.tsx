@@ -10,21 +10,20 @@ type Props = { turn: TurnState; focus: StageState; liveTokens: number };
 
 /**
  * The default view: one card for the stage in focus. When the focus moves on,
- * the next card slides in from the right with an ease-out curve (A3 + C2: fast
- * start, soft stop) while the old one slides away left and fades, twice as fast
- * (A9: exits are quicker). `popLayout` lets the two overlap, so there is never
- * an empty frame between them.
+ * the old card fades out quickly, then the next one rises a little into place
+ * with an ease-out curve (A2 + C2: fast start, soft stop). Only one card is on
+ * screen at a time, so text never overlaps.
  */
 export function StepCard({ turn, focus, liveTokens }: Props) {
   return (
     <div className="relative flex-1 overflow-hidden md:min-h-0">
-      <AnimatePresence mode="popLayout" initial={false}>
+      <AnimatePresence mode="wait" initial={false}>
         <motion.div
           key={`${turn.turnId}-${focus.id}`}
           className="absolute inset-0 overflow-y-auto p-4"
-          initial={{ x: "100%", opacity: 0.4 }}
-          animate={{ x: 0, opacity: 1, transition: { duration: DURATION.enter, ease: EASE_OUT } }}
-          exit={{ x: "-35%", opacity: 0, transition: { duration: DURATION.exit, ease: EASE_IN } }}
+          initial={{ y: 10, opacity: 0 }}
+          animate={{ y: 0, opacity: 1, transition: { duration: DURATION.enter, ease: EASE_OUT } }}
+          exit={{ opacity: 0, transition: { duration: 0.15, ease: EASE_IN } }}
         >
           <CardBody turn={turn} focus={focus} liveTokens={liveTokens} />
         </motion.div>
@@ -63,7 +62,10 @@ function CardBody({ turn, focus, liveTokens }: Props) {
         </span>
       </div>
 
-      <StageBadge turnId={turn.turnId} stage={focus} large />
+      {/* Where the finished step's label takes off for the full-route panel. */}
+      <div data-card-badge className="self-start">
+        <StageBadge stage={focus} large />
+      </div>
 
       <p className="text-sm leading-relaxed">{copy.explain}</p>
 

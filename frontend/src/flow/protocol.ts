@@ -10,6 +10,7 @@ export const STAGE_IDS = [
   "correction",
   "reference",
   "memory_recall",
+  "context_check",
   "context",
   "evidence",
   "generate",

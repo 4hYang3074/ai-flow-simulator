@@ -213,6 +213,7 @@ function Bubble({ message, onReplay }: { message: ChatMessage; onReplay?: () => 
 function ReplyBadges({ message }: { message: ChatMessage }) {
   const badges: string[] = [];
   if (message.route && message.route !== "basic") badges.push(`路线 · ${ROUTES[message.route].zh}`);
+  if (message.contextWindow === 5) badges.push("上下文 ×5 轮");
   for (const [kind, n] of Object.entries(message.materials ?? {})) {
     badges.push(`${MATERIAL_KIND[kind]?.split(" ")[0] ?? kind} ×${n}`);
   }

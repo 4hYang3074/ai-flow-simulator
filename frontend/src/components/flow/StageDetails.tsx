@@ -1,5 +1,6 @@
 import { motion } from "motion/react";
 import {
+  checkAttempts,
   MATERIAL_KIND,
   MEMORIZE_NOTES,
   RECALL_NOTES,
@@ -28,6 +29,7 @@ export function StageDetails({ stage }: { stage: StageState }) {
   const note = stage.id === "memory_recall" ? (stage.summary?.note as string | null | undefined) : null;
   const threshold = typeof stage.summary?.threshold === "number" ? stage.summary.threshold : null;
   const materials = stage.id === "evidence" ? manifest(stage.summary) : [];
+  const attempts = stage.id === "context_check" ? checkAttempts(stage.summary) : [];
   const saved = stage.id === "memorize" ? savedFacts(stage.summary) : [];
   const rejected = stage.id === "memorize" ? rejectedFacts(stage.summary) : [];
   const memorizeNote = stage.id === "memorize" ? (stage.summary?.note as string | null | undefined) : null;
@@ -80,6 +82,30 @@ export function StageDetails({ stage }: { stage: StageState }) {
             ))}
           </ol>
         </div>
+      )}
+
+      {attempts.length > 0 && (
+        <ol className="flex flex-col gap-2">
+          {attempts.map((a, i) => (
+            <li
+              key={i}
+              className={`rounded-lg border px-3 py-2 text-xs ${a.sufficient ? "border-ok/40 bg-ok/5" : "border-border"}`}
+            >
+              <p>
+                {a.sufficient ? "✓" : "✗"} 用最近 {a.pairs} 轮判断：{a.sufficient ? "够了" : "不够"}
+                {a.invalid && "（模型输出格式错误，按不够处理）"}
+              </p>
+              {a.references.length === 0 && !a.invalid && (
+                <p className="mt-0.5 text-muted">这句话没有指向前文的词 · nothing points back</p>
+              )}
+              {a.references.map((r, j) => (
+                <p key={j} className="mt-0.5 text-muted">
+                  「{r.phrase || "—"}」→ {r.quote ? `「${r.quote}」` : "（模型没找到）"} {r.found ? "✓ 前文里有" : "✗ 前文里对不上"}
+                </p>
+              ))}
+            </li>
+          ))}
+        </ol>
       )}
 
       {memorizeNote && MEMORIZE_NOTES[memorizeNote] && (

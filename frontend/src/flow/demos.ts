@@ -42,6 +42,21 @@ export const DEMOS: Demo[] = [
     ],
   },
   {
+    id: "context",
+    zh: "上下文不够时",
+    en: "Not enough context",
+    explain: "先聊一个话题，再岔开聊三件别的事，最后用「那两个」「它」指回去：看系统怎么从 3 轮扩到 5 轮，找不到时怎么反问而不是乱猜。会先清空记忆。",
+    fresh: true,
+    messages: [
+      "我在考虑学 Rust 还是 Go",
+      "推荐一本适合新手的 Python 书",
+      "明天要下雨吗？",
+      "今晚吃什么好？",
+      "那两个里面哪个更适合写网页后端？",
+      "它的价格大概多少？",
+    ],
+  },
+  {
     id: "privacy",
     zh: "隐私脱敏",
     en: "Privacy",

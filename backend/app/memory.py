@@ -14,6 +14,9 @@ from dataclasses import dataclass
 from app.store import Pair
 
 RECENT_PAIRS = 3
+# When three pairs are not enough to understand the new message, the window
+# grows to five; if that is still not enough, the turn asks instead of guessing.
+EXPANDED_PAIRS = 5
 RECALL_TOP_K = 2
 # Measured on qwen3-embedding:0.6b with the instruction below: related pairs
 # scored 0.49-0.62, unrelated ones at most 0.42. A small sample, not a law;
@@ -48,10 +51,10 @@ def cosine(a: list[float], b: list[float]) -> float:
     return sum(x * y for x, y in zip(a, b))
 
 
-def split_recent(pairs: list[Pair]) -> tuple[list[Pair], list[Pair]]:
-    """(older, recent): recent is the newest RECENT_PAIRS, oldest first."""
+def split_recent(pairs: list[Pair], size: int = RECENT_PAIRS) -> tuple[list[Pair], list[Pair]]:
+    """(older, recent): recent is the newest `size` pairs, oldest first."""
 
-    cut = max(len(pairs) - RECENT_PAIRS, 0)
+    cut = max(len(pairs) - size, 0)
     return pairs[:cut], pairs[cut:]
 
 

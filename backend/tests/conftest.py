@@ -31,7 +31,11 @@ class FakeLLM:
         replies: list[list[str]] | None = None,
         facts_reply: str = '{"facts": []}',
         facts_fail: bool = False,
+        check_replies: list[str] | None = None,
     ) -> None:
+        # Context-check answers in order; when they run out, "nothing refers back".
+        self.check_replies = list(check_replies or [])
+        self.check_calls: list[list[dict[str, str]]] = []
         self.facts_reply = facts_reply
         self.facts_fail = facts_fail
         self.pieces = pieces if pieces is not None else ["你好", "，", "世界"]
@@ -55,6 +59,11 @@ class FakeLLM:
 
     async def complete_json(self, model: str, messages: list[dict[str, str]], schema: dict) -> str:
         self.json_calls.append(messages)
+        if messages[-1]["content"].startswith("CONTEXT:"):
+            self.check_calls.append(messages)
+            if self.fail:
+                raise LLMUnavailable("connection refused")
+            return self.check_replies.pop(0) if self.check_replies else '{"refers_to_earlier": false, "references": []}'
         if messages[-1]["content"].startswith("USER MESSAGE"):
             if self.facts_fail:
                 raise LLMUnavailable("connection refused")

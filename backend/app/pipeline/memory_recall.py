@@ -2,7 +2,8 @@
 
 Three layers:
 
-1. Short-term: the newest RECENT_PAIRS question-answer pairs, replayed as is.
+1. Short-term: the newest 3 question-answer pairs, replayed as is (5 when the
+   context check finds 3 are not enough).
 2. Long-term: the facts kept in the memory notebook, given as a summary.
 3. Semantic: the older pairs are compared with the new message by embedding
    similarity, and the closest ones above the threshold are brought back.
@@ -20,7 +21,6 @@ from app.llm import LLMUnavailable
 from app.memory import (
     RECALL_MIN_SCORE,
     RECALL_TOP_K,
-    RECENT_PAIRS,
     clip,
     normalize,
     query_text,
@@ -39,7 +39,8 @@ def _preview(text: str) -> str:
 
 async def run(ctx: TurnContext) -> dict[str, Any]:
     model = ctx.settings.embed_model
-    older, recent = split_recent(ctx.store.pairs(ctx.conversation_id))
+    ctx.history = ctx.store.pairs(ctx.conversation_id)
+    older, recent = split_recent(ctx.history, ctx.window)
     ctx.recent = recent
     facts = ctx.store.facts(ctx.conversation_id)
     if facts:
@@ -47,7 +48,7 @@ async def run(ctx: TurnContext) -> dict[str, Any]:
     summary: dict[str, Any] = {
         "recent_pairs": [{"question": _preview(p.question), "user_message_id": p.user_id} for p in recent],
         "facts": [{"field": f.field, "value": f.value} for f in facts],
-        "recent_limit": RECENT_PAIRS,
+        "recent_limit": ctx.window,
         "older_pairs": len(older),
         "embed_model": model,
         "threshold": RECALL_MIN_SCORE,

@@ -15,11 +15,11 @@ export type PlaybackSettings = {
 // The panel keeps each stage on screen at least this long (at 1x speed): as
 // "running" after it starts, and as "done" with its result after it ends.
 // The real durations are still what the panel prints.
-const HOLD_ACTIVE_MS = 500;
-const HOLD_DONE_MS = 650;
+const HOLD_ACTIVE_MS = 900;
+const HOLD_DONE_MS = 1100;
 // When the backend has already moved past the stage on screen, holds shrink
 // so the panel catches up instead of drifting further behind the chat.
-const CATCH_UP = 0.5;
+const CATCH_UP = 0.6;
 
 /**
  * Replays a turn's events into the workflow panel at a readable pace.

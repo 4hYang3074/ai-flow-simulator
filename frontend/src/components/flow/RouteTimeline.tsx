@@ -7,20 +7,27 @@ import type { StageState, TurnState } from "../../flow/turnState";
 import { DURATION, EASE_OUT } from "../../motion";
 import type { StageId } from "../../flow/protocol";
 
-type Props = { turn: TurnState; focus: StageState | undefined };
+type Props = {
+  turn: TurnState;
+  focus: StageState | undefined;
+  /** Stages whose label has flown in from the current-step card. */
+  landed: Set<StageId>;
+};
 
 /**
- * The details view: every stage of this turn's route, top to bottom. Finished
- * stages are ticked, the one in focus pulses, the rest wait in grey. The line
- * between two stages fills in once the upper one is done. Click a stage to open
- * its explanation and inspector (its real input and output); the one in focus
- * is open by default.
+ * The full route, always on screen: every stage of this turn, top to bottom.
+ * A stage is ticked when its label lands here from the current-step card; the
+ * one in focus pulses, the rest wait in grey. Click a stage to open its
+ * explanation and inspector (its real input and output).
  */
-export function RouteTimeline({ turn, focus }: Props) {
-  const [opened, setOpened] = useState<StageId | null>(null);
-  const open = opened ?? focus?.id ?? null;
+export function RouteTimeline({ turn, focus, landed }: Props) {
+  const [open, setOpen] = useState<StageId | null>(null);
   const route = turn.route ? ROUTES[turn.route] : null;
-  const done = turn.stages.filter((s) => s.status === "done").length;
+  // A finished stage still shows as running until its label arrives.
+  const shown = turn.stages.map((s) =>
+    (s.status === "done" || s.status === "failed") && !landed.has(s.id) ? { ...s, status: "active" as const } : s,
+  );
+  const done = shown.filter((s) => s.status === "done").length;
 
   return (
     <div className="flex-1 overflow-y-auto p-4 md:min-h-0">
@@ -35,15 +42,16 @@ export function RouteTimeline({ turn, focus }: Props) {
       {route && <p className="mb-4 text-xs leading-relaxed text-muted">{route.explain}</p>}
 
       <ol>
-        {turn.stages.map((stage, i) => (
-          // B1 依次出现: rows fade up one after another when the view opens.
+        {shown.map((stage, i) => (
+          // A plain list: rows do not move. A row added when the route is
+          // decided only fades in.
           <motion.li
             key={stage.id}
-            layout="position"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: DURATION.enter, ease: EASE_OUT, delay: i * DURATION.stagger }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
             className="relative pb-1"
+            data-stage-row={stage.id}
           >
             {i < turn.stages.length - 1 && <Connector filled={stage.status === "done"} />}
             <button
@@ -51,7 +59,7 @@ export function RouteTimeline({ turn, focus }: Props) {
               className={`flex w-full items-center gap-3 rounded-lg py-2 pl-0 pr-2 text-left transition-colors hover:bg-surface-2 ${
                 stage.id === focus?.id ? "bg-surface-2" : ""
               }`}
-              onClick={() => setOpened(open === stage.id ? null : stage.id)}
+              onClick={() => setOpen(open === stage.id ? null : stage.id)}
               aria-expanded={open === stage.id}
             >
               <span className="pl-2">
@@ -63,13 +71,13 @@ export function RouteTimeline({ turn, focus }: Props) {
             </button>
             <AnimatePresence initial={false}>
               {open === stage.id && (
-                // G1 展开收起: the explanation opens smoothly instead of popping in.
+                // The explanation fades in under its row; the rows below move
+                // down at once rather than sliding, so nothing overlaps.
                 <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0, transition: { duration: 0.1 } }}
                   transition={{ duration: DURATION.enter, ease: EASE_OUT }}
-                  className="overflow-hidden"
                 >
                   <div className="flex flex-col gap-3 pb-3 pl-10 pr-2 text-xs leading-relaxed">
                     <div>

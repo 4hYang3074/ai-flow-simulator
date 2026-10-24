@@ -27,6 +27,7 @@ StageId = Literal[
     "correction",
     "reference",
     "memory_recall",
+    "context_check",
     "context",
     "evidence",
     "generate",
@@ -39,21 +40,25 @@ RouteId = Literal["pending", "quick", "basic", "reference", "correction", "clari
 
 _PREFIX: tuple[StageId, ...] = ("receive", "redact", "route")
 _ANSWER: tuple[StageId, ...] = (
-    "memory_recall", "context", "evidence", "generate", "validate", "persist", "memorize",
+    "memory_recall", "context_check", "context", "evidence", "generate", "validate", "persist", "memorize",
 )
 
 # Which stages each route runs, in order. Every turn starts as "pending": the
-# route stage decides the rest, and the reference stage may still switch to
-# "clarify" when what the person points at cannot be found. Each switch is
-# announced with a new `route` event, so the page can add the stages.
+# route stage decides the rest. The reference stage or the context check may
+# still switch to "clarify" when what the person means cannot be found in the
+# last 3, then 5 exchanges: the turn then asks instead of answering. Each
+# switch is announced with a new `route` event, so the page can add the stages.
 ROUTES: dict[RouteId, tuple[StageId, ...]] = {
     "pending": _PREFIX,
     "quick": (*_PREFIX, "quick_reply", "persist"),
     "basic": (*_PREFIX, *_ANSWER),
     "reference": (*_PREFIX, "reference", *_ANSWER),
     "correction": (*_PREFIX, "correction", *_ANSWER),
-    "clarify": (*_PREFIX, "reference", "persist"),
+    "clarify": (*_PREFIX, "persist"),
 }
+
+# What a turn still does after deciding to ask instead of answer.
+CLARIFY_TAIL: tuple[StageId, ...] = ("persist",)
 
 ErrorCode = Literal["invalid_message", "busy", "llm_unavailable", "empty_reply", "internal"]
 

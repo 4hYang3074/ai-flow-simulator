@@ -15,6 +15,8 @@ export type ChatMessage = {
    * the model was given, for the badges under the reply. */
   route?: RouteId;
   materials?: Record<string, number>;
+  /** Recent exchanges replayed word for word: 3, or 5 when 3 were not enough. */
+  contextWindow?: number;
 };
 
 /** Labelled materials per kind, from the evidence stage's manifest. */
@@ -24,6 +26,13 @@ function materialCounts(events: FlowEvent[]): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const m of manifest) if (m && typeof m.kind === "string") counts[m.kind] = (counts[m.kind] ?? 0) + 1;
   return counts;
+}
+
+/** How many recent exchanges the context check settled on. */
+function contextWindow(events: FlowEvent[]): number | undefined {
+  const end = events.find((e) => e.type === "stage_end" && e.stage === "context_check");
+  const w = end?.type === "stage_end" ? end.summary.window : undefined;
+  return typeof w === "number" ? w : undefined;
 }
 
 /**
@@ -94,6 +103,7 @@ export function useChat(conversationId: string) {
               totalMs: event.total_ms,
               route: route?.type === "route" ? route.route : undefined,
               materials: materialCounts(seen),
+              contextWindow: contextWindow(seen),
             }));
           } else if (event.type === "error") {
             ended = true;

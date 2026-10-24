@@ -22,7 +22,8 @@ SYSTEM_PROMPT = (
     "You are a friendly assistant inside a teaching demo that shows how an AI "
     "service works. Reply in the same language the user writes in. Keep answers "
     "clear and reasonably short; use Markdown lists or code blocks when they help. "
-    "Placeholders like [PHONE_1] stand for private details: use them as they are."
+    "Placeholders like [PHONE_1] stand for private details: use them as they are. "
+    "If it is unclear what the user is referring to, ask a short question instead of guessing."
 )
 
 MATERIALS_HEADER = (
@@ -46,6 +47,11 @@ async def run(ctx: TurnContext) -> dict[str, Any]:
     for pair in ctx.recent:
         lines.append(("user", clip(pair.question), "recent"))
         lines.append(("assistant", clip(pair.answer), "recent"))
+    if ctx.resolved:
+        # A small model weighs what sits next to the question most, so what
+        # the context check found is repeated right before it.
+        note = "; ".join(f'"{phrase}" means what this earlier text is about: {quote}' for phrase, quote in ctx.resolved)
+        lines.append(("system", f"In the user's next message, {note}. Answer about that.", "materials"))
     lines.append(("user", ctx.message, "current"))
 
     ctx.prompt = [{"role": role, "content": content} for role, content, _ in lines]

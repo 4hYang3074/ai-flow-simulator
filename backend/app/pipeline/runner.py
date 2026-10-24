@@ -1,7 +1,8 @@
 """Run a turn's stages in order and report each one as it happens.
 
 A turn starts on the "pending" route. When a stage sets `ctx.route_change`
-(the route stage always does; the reference stage may switch to "clarify"),
+(the route stage always does; the reference stage and the context check may
+switch to "clarify"),
 the runner announces the new route and carries on with the stages that come
 after the current one on that route.
 """
@@ -13,9 +14,10 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from app.events import ROUTES, StageId
+from app.events import CLARIFY_TAIL, ROUTES, StageId
 from app.pipeline import (
     build_context,
+    context_check,
     correction,
     evidence,
     generate,
@@ -43,6 +45,7 @@ STAGES: dict[StageId, Stage] = {
     "correction": correction.run,
     "reference": reference.run,
     "memory_recall": memory_recall.run,
+    "context_check": context_check.run,
     "context": build_context.run,
     "evidence": evidence.run,
     "generate": generate.run,
@@ -84,7 +87,9 @@ async def run_turn(ctx: TurnContext) -> None:
 
             if ctx.route_change and ctx.route_change != ctx.route:
                 ctx.route, ctx.route_change = ctx.route_change, None
-                stages = ROUTES[ctx.route]
+                # Asking can be decided at any stage: keep what already ran
+                # and finish with saving the question.
+                stages = (*stages[: i + 1], *CLARIFY_TAIL) if ctx.route == "clarify" else ROUTES[ctx.route]
                 ctx.emit.route(ctx.route, stages)
                 i = stages.index(stage)
             ctx.route_change = None

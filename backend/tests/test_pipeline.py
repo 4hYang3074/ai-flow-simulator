@@ -60,7 +60,8 @@ def routes(events: list[dict]) -> list[str]:
 
 PREFIX = ["route:pending", "stage_start:receive", "stage_end:receive", "stage_start:redact", "stage_end:redact",
           "stage_start:route", "stage_end:route"]
-ANSWER = ["stage_start:memory_recall", "stage_end:memory_recall", "stage_start:context", "stage_end:context",
+ANSWER = ["stage_start:memory_recall", "stage_end:memory_recall", "stage_start:context_check",
+          "stage_end:context_check", "stage_start:context", "stage_end:context",
           "stage_start:evidence", "stage_end:evidence", "stage_start:generate", "token", "stage_end:generate",
           "stage_start:validate", "stage_end:validate", "stage_start:persist", "stage_end:persist",
           "stage_start:memorize", "stage_end:memorize", "final"]
@@ -80,8 +81,8 @@ def test_route_events_list_the_full_stage_order(store):
     events = run("什么是 embedding？", FakeLLM(), store)
     route_events = [e for e in events if e["type"] == "route"]
     assert route_events[0]["stages"] == ["receive", "redact", "route"]
-    assert route_events[1]["stages"] == ["receive", "redact", "route", "memory_recall", "context", "evidence",
-                                         "generate", "validate", "persist", "memorize"]
+    assert route_events[1]["stages"] == ["receive", "redact", "route", "memory_recall", "context_check", "context",
+                                         "evidence", "generate", "validate", "persist", "memorize"]
 
 
 def test_final_reply_is_the_streamed_tokens_joined(store):
@@ -231,6 +232,161 @@ def test_clearing_memory_forgets_facts_too(store):
     assert store.facts(CONV) == []
 
 
+# --- context check: 3, then 5, then ask ----------------------------------------
+
+def _fill(llm: FakeLLM, store: Store, n: int) -> None:
+    for i in range(n):
+        run(f"Statement number {i} about topic {i}", llm, store)
+
+
+def test_three_pairs_are_enough_most_of_the_time(store):
+    llm = FakeLLM(["ok"])
+    _fill(llm, store, 5)
+    events = run("Then explain that part again please", llm, store)
+    check = summary(events, "context_check")
+    assert check["outcome"] == "sufficient" and check["window"] == 3
+    assert [a["pairs"] for a in check["attempts"]] == [3]
+    assert len([m for m in llm.calls[-1] if m["role"] == "user"]) == 4
+
+
+def test_the_window_grows_to_five_when_three_are_not_enough(store):
+    llm = FakeLLM(["ok"])
+    _fill(llm, store, 5)
+    llm.check_replies = ['{"refers_to_earlier": true, "references": [{"phrase": "那两个", "quote": ""}]}', '{"refers_to_earlier": false, "references": []}']
+    events = run("Which of the two suits a web backend better", llm, store)
+    check = summary(events, "context_check")
+    assert check["outcome"] == "expanded" and check["window"] == 5
+    assert [a["pairs"] for a in check["attempts"]] == [3, 5]
+    assert len([m for m in llm.calls[-1] if m["role"] == "user"]) == 6
+    assert summary(events, "context")["recent_pairs"] == 5
+
+
+def test_still_unclear_after_five_asks_instead_of_guessing(store):
+    llm = FakeLLM(["ok"])
+    _fill(llm, store, 5)
+    answers = len(llm.calls)
+    llm.check_replies = ['{"refers_to_earlier": true, "references": [{"phrase": "它", "quote": ""}]}'] * 2
+    events = run("How much does it cost roughly", llm, store)
+    assert routes(events)[-1] == "clarify"
+    assert summary(events, "context_check")["outcome"] == "clarify"
+    assert len(llm.calls) == answers  # no answer was generated
+    assert "「它」" in events[-1]["reply"] and "5" in events[-1]["reply"]
+    assert shape(events)[-3:] == ["stage_start:persist", "stage_end:persist", "final"]
+
+
+def test_with_three_pairs_or_fewer_there_is_nothing_to_widen(store):
+    llm = FakeLLM(["ok"])
+    _fill(llm, store, 2)
+    llm.check_replies = ['{"refers_to_earlier": true, "references": [{"phrase": "x", "quote": ""}]}']
+    events = run("And what about the other thing", llm, store)
+    assert [a["pairs"] for a in summary(events, "context_check")["attempts"]] == [2]
+    assert routes(events)[-1] == "clarify"
+
+
+def test_unusable_check_output_counts_as_not_enough(store):
+    llm = FakeLLM(["ok"])
+    _fill(llm, store, 1)
+    llm.check_replies = ["not json"]
+    events = run("And the other thing about it", llm, store)
+    assert summary(events, "context_check")["attempts"][0]["invalid"] is True
+    assert routes(events)[-1] == "clarify"
+
+
+@pytest.mark.parametrize(
+    ("message", "reason"),
+    [("什么是向量数据库？", "standalone"), ("不对，我是说 Redis", "correction")],
+)
+def test_some_messages_need_no_check(store, message, reason):
+    llm = FakeLLM(["ok"])
+    _fill(llm, store, 1)
+    events = run(message, llm, store)
+    assert summary(events, "context_check")["skip_reason"] == reason
+    assert llm.check_calls == []
+
+
+def test_first_message_needs_no_check(store):
+    events = run("Tell me something about it", FakeLLM(["ok"]), store)
+    assert summary(events, "context_check")["skip_reason"] == "no_history"
+
+
+def test_a_list_item_four_turns_back_widens_the_window(store):
+    llm = FakeLLM(["1. Redis\n2. PostgreSQL"])
+    run("推荐两个数据库", llm, store)
+    llm.pieces = ["ok"]
+    _fill(llm, store, 3)
+    events = run("第二个有什么优点？", llm, store)
+    ref = summary(events, "reference")
+    assert ref["resolved"] and ref["resolved_text"] == "PostgreSQL" and ref["searched_pairs"] == 5
+    assert summary(events, "context_check")["skip_reason"] == "resolved_by_rule"
+    assert summary(events, "context")["recent_pairs"] == 4
+
+
+def test_a_list_item_six_turns_back_is_not_guessed(store):
+    llm = FakeLLM(["1. Redis\n2. PostgreSQL"])
+    run("推荐两个数据库", llm, store)
+    llm.pieces = ["ok"]
+    _fill(llm, store, 5)
+    events = run("第二个有什么优点？", llm, store)
+    assert routes(events)[-1] == "clarify"
+    assert summary(events, "reference")["searched_pairs"] == 5
+
+
+def test_a_recalled_pair_inside_the_wider_window_is_not_given_twice(store):
+    llm = FakeLLM(["noted"])
+    run("my cat name is Tom", llm, store)
+    _fill(llm, store, 3)
+    llm.check_replies = ['{"refers_to_earlier": true, "references": [{"phrase": "x", "quote": ""}]}', '{"refers_to_earlier": false, "references": []}']
+    events = run("and my cat name then", llm, store)
+    assert summary(events, "context_check")["window"] == 5
+    assert [m["kind"] for m in summary(events, "evidence")["manifest"]] == []
+
+
+def test_a_quote_found_in_the_context_counts_as_enough(store):
+    llm = FakeLLM(["Rust 和 Go 各有优势"])
+    run("我在考虑学 Rust 还是 Go", llm, store)
+    llm.check_replies = ['{"refers_to_earlier": true, "references": [{"phrase": "那两个", "quote": "Rust 还是 Go"}]}']
+    events = run("那两个里面哪个更适合写网页后端", llm, store)
+    check = summary(events, "context_check")
+    assert check["outcome"] == "sufficient"
+    assert check["attempts"][0]["references"] == [{"phrase": "那两个", "quote": "Rust 还是 Go", "found": True}]
+    # What the check found is handed to the answer as a labelled material.
+    assert '"那两个" refers to what this earlier text is about: Rust 还是 Go' in llm.calls[-1][1]["content"]
+
+
+def test_a_quote_matches_even_without_the_markdown(store):
+    llm = FakeLLM(["### 选择 Go 的场景：\n- **后端服务开发**：比如 API 服务"])
+    run("我在考虑学 Rust 还是 Go", llm, store)
+    llm.check_replies = ['{"refers_to_earlier": true, "references": [{"phrase": "那两个", "quote": "选择 Go 的场景 后端服务开发"}]}']
+    events = run("那两个里面哪个更适合写网页后端", llm, store)
+    assert summary(events, "context_check")["outcome"] == "sufficient"
+
+
+def test_a_quote_of_several_words_may_change_their_order(store):
+    llm = FakeLLM(["好的"])
+    run("我在考虑学 Rust 还是 Go", llm, store)
+    llm.check_replies = ['{"refers_to_earlier": true, "references": [{"phrase": "那两个", "quote": "Go 和 Rust"}]}']
+    events = run("那两个里面哪个更适合写网页后端", llm, store)
+    assert summary(events, "context_check")["outcome"] == "sufficient"
+
+
+def test_a_very_short_quote_proves_nothing(store):
+    llm = FakeLLM(["为什么推荐它？因为简单"])
+    run("推荐一本书", llm, store)
+    llm.check_replies = ['{"refers_to_earlier": true, "references": [{"phrase": "更简单的方式", "quote": "为什么"}]}']
+    events = run("能不能换一种更简单的方式解释给小学生听", llm, store)
+    assert summary(events, "context_check")["attempts"][0]["references"][0]["found"] is False
+
+
+def test_a_quote_not_in_the_context_counts_as_not_enough(store):
+    llm = FakeLLM(["ok"])
+    run("我在考虑学 Rust 还是 Go", llm, store)
+    llm.check_replies = ['{"refers_to_earlier": true, "references": [{"phrase": "那两个", "quote": "Java 和 C#"}]}']
+    events = run("那两个里面哪个更适合写网页后端", llm, store)
+    assert summary(events, "context_check")["attempts"][0]["references"][0]["found"] is False
+    assert routes(events)[-1] == "clarify"
+    assert "「那两个」" in events[-1]["reply"]
+
+
 # --- routing -----------------------------------------------------------------
 
 def test_small_talk_takes_the_fast_path_with_no_model_call(store):
@@ -255,7 +411,7 @@ def test_a_list_position_is_resolved_from_the_last_answer(store):
     assert routes(events) == ["pending", "reference"]
     ref = summary(events, "reference")
     assert ref == {**ref, "resolved": True, "target": "list_item", "index": 2, "resolved_text": "PostgreSQL"}
-    assert "item 2 of your previous answer: PostgreSQL" in llm.calls[-1][1]["content"]
+    assert "item 2 of this earlier answer's list: PostgreSQL" in llm.calls[-1][1]["content"]
 
 
 def test_a_pointer_refers_to_the_previous_exchange(store):
