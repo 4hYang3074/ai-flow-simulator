@@ -6,6 +6,8 @@ A teaching simulator: chat on the left; on the right, every stage a real local A
 
 流程的设计参考了两个真实在线运行的 AI 服务（下文称系统 A、系统 B）。每一步的解释下面都写了「真实系统还会做什么」。
 
+想先了解一个 AI 服务是怎么运作的？读 [docs/ai-service-explained.html](docs/ai-service-explained.html)（下载后用浏览器打开）：用这个模拟器讲解 harness、规则、记忆，以及“判断不了就问”的规则。
+
 ## 快速开始 Quick start
 
 第一次安装请看 [SETUP.md](SETUP.md)，也可以直接把它交给 AI 助手执行。装好以后：
