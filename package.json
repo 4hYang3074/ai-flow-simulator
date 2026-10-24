@@ -1,0 +1,17 @@
+{
+  "name": "ai-flow-simulator",
+  "private": true,
+  "description": "A teaching simulator that shows every stage of a real local AI service.",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "dev": "node scripts/dev.mjs",
+    "test": "cd backend && uv run pytest -q",
+    "build": "npm run build -w frontend"
+  }
+}

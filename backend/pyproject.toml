@@ -1,0 +1,17 @@
+[project]
+name = "ai-flow-simulator-backend"
+version = "0.1.0"
+description = "Teaching backend: a real local AI pipeline that reports every stage it runs."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "ollama",
+]
+
+[dependency-groups]
+dev = ["pytest", "httpx"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
