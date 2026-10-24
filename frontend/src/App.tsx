@@ -21,7 +21,24 @@ function recalledScores(flow: FlowLog | null): Map<string, number> {
 
 export default function App() {
   const health = useHealth();
-  const conversationId = useConversationId();
+  const { id, startNew } = useConversationId();
+  return (
+    <div className="flex h-full flex-col">
+      <header className="flex h-14 shrink-0 items-center justify-between gap-3 px-4 md:px-6">
+        <div className="flex min-w-0 items-baseline gap-2">
+          <h1 className="truncate text-base font-semibold">AI Flow Simulator</h1>
+          <span className="hidden text-sm text-muted sm:inline">AI 流程模拟器</span>
+        </div>
+        <StatusPill state={health} />
+      </header>
+      {/* Keyed by the conversation: a new chat starts every panel, memory
+          view, replay and demo from scratch. */}
+      <Conversation key={id} conversationId={id} onNewChat={startNew} />
+    </div>
+  );
+}
+
+function Conversation({ conversationId, onNewChat }: { conversationId: string; onNewChat: () => void }) {
   const { messages, flow, sending, send, seed, reset, replay, canReplay } = useChat(conversationId);
   const { memory, loaded, reload, clear } = useMemory(conversationId);
   const { isShown, flights, onFlowEvent, onArrive } = useMemoryFlights(memory, loaded);
@@ -62,14 +79,7 @@ export default function App() {
   );
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex h-14 shrink-0 items-center justify-between gap-3 px-4 md:px-6">
-        <div className="flex min-w-0 items-baseline gap-2">
-          <h1 className="truncate text-base font-semibold">AI Flow Simulator</h1>
-          <span className="hidden text-sm text-muted sm:inline">AI 流程模拟器</span>
-        </div>
-        <StatusPill state={health} />
-      </header>
+    <>
       {/* Three panels: chat, the current step, the full route. */}
       <main className="grid flex-1 grid-cols-1 gap-4 px-4 pb-4 md:min-h-0 md:grid-cols-2 md:grid-rows-[minmax(0,3fr)_minmax(0,2fr)] md:px-6 md:pb-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)] xl:grid-rows-1">
         <ChatPanel
@@ -85,10 +95,14 @@ export default function App() {
           onStopDemo={demo.stop}
           canReplay={canReplay}
           onReplay={replay}
+          onNewChat={() => {
+            demo.stop();
+            onNewChat();
+          }}
         />
         <FlowPanel flow={flow} onShown={onShown} />
       </main>
       <FlyLayer flights={flights} onArrive={onArrive} />
-    </div>
+    </>
   );
 }

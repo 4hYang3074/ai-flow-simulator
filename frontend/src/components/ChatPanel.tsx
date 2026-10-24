@@ -26,6 +26,7 @@ type Props = {
   onStopDemo: () => void;
   canReplay: (messageId: string) => boolean;
   onReplay: (messageId: string) => void;
+  onNewChat: () => void;
 };
 
 export function ChatPanel({
@@ -41,6 +42,7 @@ export function ChatPanel({
   onStopDemo,
   canReplay,
   onReplay,
+  onNewChat,
 }: Props) {
   const facts = (memory?.facts ?? []).filter((f) => isFactShown(f.id));
   const [draft, setDraft] = useState("");
@@ -82,6 +84,16 @@ export function ChatPanel({
       subtitle="Chat"
       action={
         <div className="flex items-center gap-2">
+          <motion.button
+            type="button"
+            className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-surface-2 disabled:opacity-40"
+            onClick={onNewChat}
+            disabled={sending}
+            whileTap={{ scale: 0.94 }}
+            title="开始新对话，旧对话仍保存在数据库里 · Start fresh; the old chat stays saved"
+          >
+            ＋ 新对话
+          </motion.button>
           <DemoMenu running={demo} disabled={sending} onStart={onStartDemo} onStop={onStopDemo} />
           <motion.button
             type="button"
