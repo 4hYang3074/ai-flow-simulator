@@ -1,0 +1,441 @@
+<title>AI 服务的幕后</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: one reading column (~68ch) with full-width diagrams; numbered
+     sections because the report is meant to be read in order. */
+  :root {
+    --bg: #f4f6f3;
+    --surface: #ffffff;
+    --fg: #1c2320;
+    --muted: #5b6662;
+    --line: #d7ddd8;
+    --accent: #0e6b5b;        /* the harness: everything around the model */
+    --accent-soft: #e2efeb;
+    --rule: #a5571a;          /* hand-written rules */
+    --rule-soft: #f6e9dc;
+    --model: #3f4fa3;         /* the model itself */
+    --model-soft: #e7e9f6;
+    --font-display: "Noto Serif SC", "Songti SC", "SimSun", serif;
+    --font-body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #111614; --surface: #18201d; --fg: #e3e8e5; --muted: #9aa7a2; --line: #2b3632;
+      --accent: #4fbea3; --accent-soft: #1b2e29; --rule: #e0a161; --rule-soft: #33261b;
+      --model: #9aa6f0; --model-soft: #222743; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #111614; --surface: #18201d; --fg: #e3e8e5; --muted: #9aa7a2; --line: #2b3632;
+    --accent: #4fbea3; --accent-soft: #1b2e29; --rule: #e0a161; --rule-soft: #33261b;
+    --model: #9aa6f0; --model-soft: #222743; color-scheme: dark;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.75;
+  }
+  .page {
+    max-width: 760px;
+    margin: 0 auto;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 48px 96px;
+    display: flex;
+    flex-direction: column;
+    gap: 56px;
+  }
+  h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; line-height: 1.3; margin: 0; }
+  h1 { font-size: clamp(30px, 6vw, 44px); }
+  h2 { font-size: clamp(22px, 4vw, 28px); }
+  h3 { font-size: 18px; }
+  p { margin: 0; }
+  section { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .lede { font-size: 18px; color: var(--muted); }
+  .muted { color: var(--muted); }
+  code, .mono { font-family: var(--font-mono); font-size: 0.88em; }
+  code { background: var(--accent-soft); padding: 0.05em 0.35em; border-radius: 4px; }
+  strong { font-weight: 700; }
+  a { color: var(--accent); }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* Section heads: number + title */
+  .sec-head { display: flex; flex-direction: column; gap: 6px; }
+  .sec-num { font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
+
+  /* Contents */
+  .toc { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 24px; padding: 0; margin: 0; list-style: none; }
+  .toc a { text-decoration: none; color: var(--fg); display: flex; gap: 10px; }
+  .toc a:hover { color: var(--accent); }
+  .toc .n { font-family: var(--font-mono); color: var(--muted); font-size: 13px; padding-top: 3px; }
+
+  /* Key takeaways */
+  .takeaways { display: grid; gap: 12px; padding: 0; margin: 0; list-style: none; }
+  .takeaways li { display: grid; grid-template-columns: 28px 1fr; gap: 12px; align-items: baseline; }
+  .takeaways .k { font-family: var(--font-mono); color: var(--accent); font-weight: 500; }
+
+  /* Legend chips used across diagrams */
+  .chip { display: inline-block; border-radius: 999px; padding: 0 0.6em; font-size: 0.85em; line-height: 1.7; white-space: nowrap; }
+  .chip.harness { background: var(--accent-soft); color: var(--accent); }
+  .chip.rule { background: var(--rule-soft); color: var(--rule); }
+  .chip.model { background: var(--model-soft); color: var(--model); }
+
+  /* Diagram: the model inside the harness */
+  .figure { display: flex; flex-direction: column; gap: 10px; }
+  .figure figcaption { font-size: 13px; color: var(--muted); }
+  .harness-box {
+    border: 2px solid var(--accent);
+    border-radius: 14px;
+    padding: 16px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    background: var(--surface);
+  }
+  .harness-box .cell { border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px; font-size: 14px; line-height: 1.5; }
+  .harness-box .cell b { display: block; font-weight: 500; }
+  .harness-box .core {
+    grid-column: 2; grid-row: 2;
+    border: 2px solid var(--model); background: var(--model-soft); color: var(--model);
+    text-align: center; display: flex; flex-direction: column; justify-content: center;
+  }
+  .harness-label { font-family: var(--font-mono); font-size: 12px; color: var(--accent); grid-column: 1 / -1; }
+
+  /* Tables */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; line-height: 1.6; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 500; color: var(--muted); font-size: 13px; background: var(--bg); }
+  tr:last-child td { border-bottom: 0; }
+  td:first-child { white-space: nowrap; }
+
+  /* The pipeline: an ordered sequence */
+  .pipeline { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; }
+  .pipeline li {
+    display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 4px 12px;
+    padding: 12px 0; border-bottom: 1px solid var(--line);
+  }
+  .pipeline li:last-child { border-bottom: 0; }
+  .pipeline .step { font-family: var(--font-mono); font-size: 13px; color: var(--muted); padding-top: 3px; }
+  .pipeline .what { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+  .pipeline .what h3 { font-family: var(--font-body); font-weight: 700; font-size: 16px; }
+  .pipeline .what .en { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+  .pipeline .desc { grid-column: 2; font-size: 15px; color: var(--fg); }
+  .pipeline .where { grid-column: 2; font-size: 13px; color: var(--muted); }
+
+  /* Memory layers */
+  .layers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .layer { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .layer .big { font-family: var(--font-display); font-size: 26px; color: var(--accent); line-height: 1.2; }
+  .layer h3 { font-family: var(--font-body); font-size: 15px; font-weight: 700; }
+  .layer p { font-size: 14px; color: var(--muted); line-height: 1.65; }
+
+  /* The 3 -> 5 -> ask decision */
+  .ladder { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
+  .rung { padding: 14px; border: 1px solid var(--line); background: var(--surface); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .rung + .rung { border-left: 0; }
+  .rung:first-child { border-radius: 10px 0 0 10px; }
+  .rung:last-child { border-radius: 0 10px 10px 0; border-color: var(--rule); background: var(--rule-soft); }
+  .rung .tag { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+  .rung h3 { font-family: var(--font-body); font-size: 16px; font-weight: 700; }
+  .rung p { font-size: 14px; line-height: 1.65; }
+
+  /* Chat examples */
+  .chat { display: flex; flex-direction: column; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .msg { max-width: 88%; padding: 8px 12px; border-radius: 12px; font-size: 14.5px; line-height: 1.6; }
+  .msg.user { align-self: flex-end; background: var(--model); color: var(--surface); }
+  .msg.ai { align-self: flex-start; background: var(--bg); border: 1px solid var(--line); }
+  .msg.note { align-self: stretch; max-width: none; background: transparent; border: 1px dashed var(--accent); color: var(--accent); font-family: var(--font-mono); font-size: 12.5px; }
+
+  /* Callouts */
+  .callout { border-left: 3px solid var(--rule); background: var(--rule-soft); padding: 12px 16px; border-radius: 0 8px 8px 0; font-size: 15px; }
+  .callout.harness { border-color: var(--accent); background: var(--accent-soft); }
+
+  ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 6px; }
+  dl.glossary { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 18px; margin: 0; font-size: 15px; }
+  dl.glossary dt { font-family: var(--font-mono); color: var(--accent); }
+  dl.glossary dd { margin: 0; }
+
+  footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+
+  @media (max-width: 640px) {
+    .harness-box { grid-template-columns: 1fr; }
+    .harness-box .core { grid-column: 1; grid-row: auto; order: -1; }
+    .layers, .ladder { grid-template-columns: 1fr; }
+    .rung + .rung { border-left: 1px solid var(--line); border-top: 0; }
+    .rung:first-child { border-radius: 10px 10px 0 0; }
+    .rung:last-child { border-radius: 0 0 10px 10px; border-left-color: var(--rule); }
+    dl.glossary { grid-template-columns: 1fr; gap: 2px 0; }
+    dl.glossary dd { margin-bottom: 10px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+  html { scroll-behavior: smooth; }
+</style>
+
+<main class="page">
+  <header style="display:flex;flex-direction:column;gap:14px">
+    <p class="eyebrow">以 AI Flow Simulator 为例</p>
+    <h1>一个 AI 服务，是怎么跑起来的</h1>
+    <p class="lede">你在聊天框里打一句话，几秒后收到回答。中间其实经过了十几个步骤，而真正“思考”的模型只占其中一步。这份报告用我们自己做的模拟器，把这些步骤一个一个拆开讲。</p>
+    <p class="muted" style="font-size:14px">图例：<span class="chip harness">harness 外层程序</span> <span class="chip rule">写好的规则</span> <span class="chip model">模型本身</span></p>
+  </header>
+
+  <nav aria-label="目录">
+    <ol class="toc">
+      <li><a href="#core"><span class="n">0</span>先说结论</a></li>
+      <li><a href="#model"><span class="n">1</span>模型能做什么、不能做什么</a></li>
+      <li><a href="#harness"><span class="n">2</span>Harness：包在模型外面的那一层</a></li>
+      <li><a href="#pipeline"><span class="n">3</span>一句话走过的完整路线</a></li>
+      <li><a href="#rules"><span class="n">4</span>规则：先规则，再模型</a></li>
+      <li><a href="#memory"><span class="n">5</span>记忆：给没有记忆的模型补上记忆</a></li>
+      <li><a href="#ask"><span class="n">6</span>判断不了就问，绝不靠猜</a></li>
+      <li><a href="#check"><span class="n">7</span>检查回答：模型也会出错</a></li>
+      <li><a href="#try"><span class="n">8</span>用模拟器亲手验证</a></li>
+      <li><a href="#real"><span class="n">9</span>真正上线的系统还会多做什么</a></li>
+      <li><a href="#terms"><span class="n">10</span>术语表</a></li>
+    </ol>
+  </nav>
+
+  <section id="core">
+    <div class="sec-head"><span class="sec-num">0</span><h2>先说结论</h2></div>
+    <ul class="takeaways">
+      <li><span class="k">①</span><p><strong>模型只是一个零件。</strong>一个 AI 服务 = 模型 + 包在它外面的一大套程序。这套程序在行内叫 <strong>harness</strong>，用户感受到的“聪明”和“靠谱”，大部分来自它。</p></li>
+      <li><span class="k">②</span><p><strong>模型没有记忆。</strong>它每次都是一张白纸，只看得到这一次交给它的文字。所以“记得你上一句说了什么”，是 harness 把对话找出来、重新塞给模型的结果。</p></li>
+      <li><span class="k">③</span><p><strong>规则决定边界。</strong>什么时候不用调用模型、什么叫“指前文”、找不到时怎么办，都是事先写好的规则。最重要的一条是：<strong>记忆层也判断不了的时候，直接问用户，绝不靠猜。</strong></p></li>
+    </ul>
+  </section>
+
+  <section id="model">
+    <div class="sec-head"><span class="sec-num">1</span><h2>模型能做什么、不能做什么</h2></div>
+    <p>模拟器用的模型是 <strong>Qwen3 4B</strong>，在你自己的电脑上通过 Ollama 运行。“4B”指它有 40 亿个参数，在大模型里算很小的一类。它的工作方式可以简单理解为：读进一串文字，然后一次预测一个 <strong>token</strong>（大约一个字或半个词），接着往下写，直到写完。</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>模型能做的</th><th>模型做不到的</th></tr></thead>
+        <tbody>
+          <tr><td>理解和续写文字：回答问题、写东西、翻译、解释</td><td>记得上一次调用说过什么（每次都从零开始）</td></tr>
+          <tr><td>按格式输出，比如只输出一段 JSON</td><td>保证输出一定正确：会编造，也会把格式写坏</td></tr>
+          <tr><td>根据给它的材料作答</td><td>知道材料以外的新信息：它不能上网，不知道今天的天气</td></tr>
+          <tr><td>判断“这句话在说什么”</td><td>可靠地判断“我手上的信息够不够”：小模型这一点尤其弱</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout harness"><p><strong>关键概念：prompt 就是模型的全部世界。</strong>每次调用模型，交给它的是一个消息列表（system 指令、之前的对话、这次的问题）。模型看到的就只有这些。列表里没有的东西，对它来说就不存在。在模拟器里，打开「完整流程 → 上下文组装 → 完整 Prompt」，就能看到每一轮模型真正读到的全部内容。</p></div>
+  </section>
+
+  <section id="harness">
+    <div class="sec-head"><span class="sec-num">2</span><h2>Harness：包在模型外面的那一层</h2></div>
+    <p><strong>Harness</strong> 原意是马具。马很有力，但没有马具就拉不了车，也不会往你想去的方向走。模型也一样：它很会写字，但谁来决定给它看什么、它写坏了怎么办、敏感信息能不能给它看？这些都由 harness 负责。</p>
+    <figure class="figure">
+      <div class="harness-box" role="img" aria-label="模型位于中间，四周是 harness 的八项职责">
+        <span class="harness-label">HARNESS · 外层程序</span>
+        <div class="cell"><b>接收与校验</b>消息能不能处理</div>
+        <div class="cell"><b>隐私脱敏</b>个人信息先换成占位符</div>
+        <div class="cell"><b>意图路由</b>决定走哪条路线</div>
+        <div class="cell"><b>记忆</b>找出该给模型看的旧对话</div>
+        <div class="cell core"><b>模型</b>Qwen3 4B<br><span style="font-size:12px">只负责读和写</span></div>
+        <div class="cell"><b>上下文检查</b>够不够理解这句话</div>
+        <div class="cell"><b>输出校验</b>回答有没有问题</div>
+        <div class="cell"><b>保存</b>存对话、建索引</div>
+        <div class="cell"><b>长期记忆</b>挑出值得记住的事实</div>
+      </div>
+      <figcaption>模型被包在中间。除了“生成回答”这一步，其余都是 harness 的工作。</figcaption>
+    </figure>
+    <p>设计 harness 时，要事先想清楚并写成规则的问题，大致有这几类：</p>
+    <ul class="plain">
+      <li><strong>给模型看什么：</strong>带几轮旧对话？哪些记忆？按什么顺序摆？</li>
+      <li><strong>什么时候不用模型：</strong>“你好”“谢谢”这种话，用模板回答就行，又快又省钱。</li>
+      <li><strong>不能给模型看什么：</strong>手机号、邮箱这类个人信息，要先换掉。</li>
+      <li><strong>模型出错怎么办：</strong>回答是空的、格式写坏了、引用了不存在的东西，怎么兜底？</li>
+      <li><strong>信息不够怎么办：</strong>这是最容易被忽略、也最重要的一条，第 6 节专门讲。</li>
+    </ul>
+  </section>
+
+  <section id="pipeline">
+    <div class="sec-head"><span class="sec-num">3</span><h2>一句话走过的完整路线</h2></div>
+    <p>下面是模拟器里一轮请求按顺序经过的步骤。每一步都对应模拟器右边「完整流程」里的一行，点开就能看到它真实的输入和输出。不是每一轮都会走完所有步骤：路由会决定走哪条路线。</p>
+    <ol class="pipeline">
+      <li><span class="step">01</span><div class="what"><h3>接收与校验</h3><span class="en">Receive</span><span class="chip rule">规则</span></div><p class="desc">消息是不是空的、有没有超过 2000 字、上一条是不是还在处理。</p></li>
+      <li><span class="step">02</span><div class="what"><h3>隐私脱敏</h3><span class="en">Redact</span><span class="chip rule">规则</span></div><p class="desc">手机号变成 <code>[PHONE_1]</code>、邮箱变成 <code>[EMAIL_1]</code>。之后的每一步、包括存进数据库的，都是占位符；只有最后显示给你的回答会换回真实的值。</p></li>
+      <li><span class="step">03</span><div class="what"><h3>意图路由</h3><span class="en">Intent Routing</span><span class="chip rule">规则</span><span class="chip model">模型兜底</span></div><p class="desc">判断这句话属于哪一类：闲聊、普通提问、引用前文、纠正上一轮。先用规则判断，规则判断不了的短句（“为什么？”）再问模型。</p></li>
+      <li><span class="step">04</span><div class="what"><h3>快速通道</h3><span class="en">Fast Path</span><span class="chip rule">规则</span></div><p class="desc">闲聊直接用模板回答，0 次模型调用，几毫秒就完成。</p></li>
+      <li><span class="step">05</span><div class="what"><h3>纠正 / 引用</h3><span class="en">Correction / Reference</span><span class="chip rule">规则</span></div><p class="desc">“不对，我是说……”就把上一轮找出来；“第二个”就去最近的回答列表里找第二项。</p></li>
+      <li><span class="step">06</span><div class="what"><h3>记忆提取</h3><span class="en">Memory Recall</span><span class="chip harness">harness</span></div><p class="desc">取出最近 3 轮对话、长期记忆本里的事实，再用相似度检索找回更早的相关对话。</p></li>
+      <li><span class="step">07</span><div class="what"><h3>上下文检查</h3><span class="en">Context Check</span><span class="chip model">模型</span><span class="chip rule">规则核对</span></div><p class="desc">手上的信息够不够理解这句话？3 轮不够就扩到 5 轮，5 轮还不够就反问用户。</p></li>
+      <li><span class="step">08</span><div class="what"><h3>上下文组装</h3><span class="en">Context Assembly</span><span class="chip harness">harness</span></div><p class="desc">把系统指令、编号材料 <code>[M1]</code>、最近对话、新问题拼成最终的 prompt。</p></li>
+      <li><span class="step">09</span><div class="what"><h3>证据快照</h3><span class="en">Evidence Snapshot</span><span class="chip harness">harness</span></div><p class="desc">记下这次到底给了模型哪些材料，并给整个 prompt 算一个指纹，事后可以对账。</p></li>
+      <li><span class="step">10</span><div class="what"><h3>生成</h3><span class="en">Generation</span><span class="chip model">模型</span></div><p class="desc">模型一个 token 一个 token 地写，每写出一点就立刻送到聊天框（streaming）。这是整条路线里唯一“写回答”的一步。</p></li>
+      <li><span class="step">11</span><div class="what"><h3>输出校验</h3><span class="en">Validation</span><span class="chip rule">规则</span></div><p class="desc">回答是空的就去掉历史重问一次；检查引用的编号是不是真的给过模型；把占位符换回原值。</p></li>
+      <li><span class="step">12</span><div class="what"><h3>保存</h3><span class="en">Persist</span><span class="chip harness">harness</span></div><p class="desc">这一问一答存进 SQLite，再算一个 embedding，以后才能靠相似度找回来。</p></li>
+      <li><span class="step">13</span><div class="what"><h3>长期记忆</h3><span class="en">Long-term Memory</span><span class="chip model">模型</span><span class="chip rule">规则核对</span></div><p class="desc">让模型挑出值得长期记住的事实（名字、喜好、过敏），每条必须原文引用你的话，否则丢掉。</p></li>
+    </ol>
+    <p class="muted" style="font-size:14px">数一数：13 步里只有 3 步主要靠模型，其余都是 harness 写好的程序和规则。</p>
+  </section>
+
+  <section id="rules">
+    <div class="sec-head"><span class="sec-num">4</span><h2>规则：先规则，再模型</h2></div>
+    <p>很多人以为 AI 服务就是“把问题丢给模型”。实际上，成熟的系统几乎都是<strong>规则在前，模型兜底</strong>。原因很实际：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th></th><th>规则</th><th>模型</th></tr></thead>
+        <tbody>
+          <tr><td>速度</td><td>不到 1 毫秒</td><td>零点几秒到几秒</td></tr>
+          <tr><td>成本</td><td>免费</td><td>每次调用都要算力（云端就是钱）</td></tr>
+          <tr><td>可预测</td><td>同样的输入永远同样的结果</td><td>同一句话问两次，可能判断不同</td></tr>
+          <tr><td>可测试</td><td>能写自动测试逐条验证</td><td>只能抽样观察</td></tr>
+          <tr><td>灵活</td><td>只认得写进去的说法</td><td>能理解各种说法</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>所以分工是：<strong>规则处理清楚的情况，模型处理模糊的情况，规则再检查模型的结果。</strong>模拟器里的几条规则：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>规则</th><th>内容</th><th>为什么这样定</th></tr></thead>
+        <tbody>
+          <tr><td>闲聊模板</td><td>“你好 / 谢谢 / 再见 / 好的”直接回模板</td><td>不值得为这种话调用一次模型</td></tr>
+          <tr><td>指代词</td><td>“它 / 这个 / 那个”只有出现在第一句才算指前文；“刚才 / 之前 / 你说的”在哪都算</td><td>“我的猫叫小白，它三岁了”里的“它”是小白，不是在指前文</td></tr>
+          <tr><td>相似度阈值</td><td>相似度 ≥ 0.45 才把旧对话找回来</td><td>实测：相关的对话 0.49–0.62，不相关的最高 0.42</td></tr>
+          <tr><td>事实校验</td><td>长期记忆的事实必须原文引用你的话；来自问句的一律不要</td><td>实测模型会从“我的猫叫什么？”里提取出“猫的名字：未知”</td></tr>
+          <tr><td>失败时</td><td>模型输出格式错误，一律按“不确定”处理</td><td>宁可多问一句，也不能拿坏掉的结果继续往下走</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout"><p><strong>规则要“看得见”。</strong>模拟器里每条规则命中时都会显示出来：「意图路由」写着命中了哪条规则、哪几个字；规则判断不了时，会标明“模型判定”。这样出错时才知道是规则的问题还是模型的问题。</p></div>
+  </section>
+
+  <section id="memory">
+    <div class="sec-head"><span class="sec-num">5</span><h2>记忆：给没有记忆的模型补上记忆</h2></div>
+    <p>因为模型每次都是白纸，“记忆”必须由 harness 来做：把对话存起来，下一次再挑出相关的部分放回 prompt。问题在于不能全部放进去：prompt 越长越慢，小模型能读的长度也有限，太多无关内容还会干扰它。所以模拟器把记忆分成三层：</p>
+    <div class="layers">
+      <div class="layer"><span class="big">3 轮</span><h3>短期记忆</h3><p>最近 3 轮问答原样带上。大多数追问（“那它呢？”）都指向刚说过的话。必要时扩到 5 轮，见第 6 节。</p></div>
+      <div class="layer"><span class="big">事实</span><h3>长期记忆本</h3><p>“名字：阿明”“猫的名字：小白”“过敏：花生”。每轮都带给模型。每条都附原文引用，新说法会取代旧的（第 2 版）。</p></div>
+      <div class="layer"><span class="big">≥ 0.45</span><h3>相似度检索</h3><p>更早的对话不全部带上，而是用 embedding 把每段对话变成一串数字，和新问题比相似度，够像才找回来。</p></div>
+    </div>
+    <p><strong>真实例子</strong>（模拟器实测）：</p>
+    <div class="chat" aria-label="相似度检索例子">
+      <div class="msg user">我叫阿明，我的猫叫小白，它三岁了</div>
+      <div class="msg note">长期记忆：记下「名字：阿明」「猫的名字：小白」「猫的年龄：三岁」，每条都对上了原文</div>
+      <div class="msg user">推荐两个适合新手的数据库 → 明天要下雨吗？ → 我最喜欢吃披萨 …（聊了几轮别的）</div>
+      <div class="msg user">我的猫叫什么名字？</div>
+      <div class="msg note">第一句已经不在最近 3 轮里 → 相似度检索把它找回来（相似度 0.643 ≥ 0.45）</div>
+      <div class="msg ai">你的猫叫小白。</div>
+    </div>
+    <p class="muted" style="font-size:14px">在模拟器里：左上角「📒 记忆本」显示长期事实，新事实会从你的话里飘进去；「记忆 Memory」按钮能看到哪些对话是“短期”，哪些只能“检索”。</p>
+  </section>
+
+  <section id="ask">
+    <div class="sec-head"><span class="sec-num">6</span><h2>判断不了就问，绝不靠猜</h2></div>
+    <p>记忆层把材料找齐之后，还要回答一个问题：<strong>这些信息够不够理解用户这句话？</strong>比如用户说“那两个里面哪个更好？”，系统必须知道“那两个”是什么。这时有一条必须遵守的规则：</p>
+    <div class="ladder" role="list">
+      <div class="rung" role="listitem"><span class="tag">第一步</span><h3>用最近 3 轮判断</h3><p>大部分时候够了，直接回答。</p></div>
+      <div class="rung" role="listitem"><span class="tag">第二步</span><h3>不够，扩到 5 轮</h3><p>多看两轮再判断。够了就带着 5 轮去回答。</p></div>
+      <div class="rung" role="listitem"><span class="tag">第三步</span><h3>还不够，直接问</h3><p>“我不太确定『那两个』指的是什么，能说得具体一点吗？”不调用回答模型。</p></div>
+    </div>
+    <p><strong>为什么宁可问也不猜？</strong>猜错的代价比多问一句大得多：用户会收到一个看起来很自信、但答非所问的回答，而且很难发现它是错的。问一句只多花几秒。</p>
+    <h3>怎么判断“够不够”</h3>
+    <p>最直接的做法是问模型“够不够？”，但实测 4B 小模型答这个问题很不可靠：完整的问题它说不够，材料就在眼前它也说不够。所以改成和长期记忆一样的思路，<strong>让模型做它擅长的事，让程序做核对</strong>：</p>
+    <ul class="plain">
+      <li>模型只负责<strong>指出</strong>这句话里哪些词在指前文（“那两个”），并<strong>原文引用</strong>它指的内容（“Rust 还是 Go”）。</li>
+      <li>程序<strong>核对</strong>引用是不是真的出现在前文里（忽略标点；太短的引用如“为什么”不算数）。</li>
+      <li>没有指前文的词，或者每个都对得上：够了。有任何一个对不上：不够。</li>
+    </ul>
+    <p>有几种情况根本不用检查，由规则直接放行：第一句话、完整的新问题（“什么是向量数据库？”）、已经在列表里找到的“第二个”、纠正上一轮。</p>
+    <p><strong>真实例子</strong>（示例剧本「上下文不够时」）：</p>
+    <div class="chat" aria-label="三轮扩到五轮的例子">
+      <div class="msg user">我在考虑学 Rust 还是 Go</div>
+      <div class="msg user">推荐一本适合新手的 Python 书</div>
+      <div class="msg user">明天要下雨吗？</div>
+      <div class="msg user">今晚吃什么好？</div>
+      <div class="msg user">那两个里面哪个更适合写网页后端？</div>
+      <div class="msg note">最近 3 轮里找不到「那两个」→ 扩到 5 轮 → 找到「Rust 还是 Go」，引用核对通过</div>
+      <div class="msg ai">对比 Go 和 Rust 写网页后端……（按 Rust 和 Go 回答）</div>
+      <div class="msg user">它的价格大概多少？</div>
+      <div class="msg note">如果 5 轮里都对不上「它」→ 改为反问，不调用回答模型</div>
+      <div class="msg ai">我不太确定「它」指的是什么。我看了最近 5 轮对话还是没法确定，能说得具体一点吗？</div>
+    </div>
+    <div class="callout"><p><strong>规则的极限也要说清楚。</strong>程序能核对“引用的话确实在前文里”，但不能保证模型引用的就是对的那一段。所以小模型有时会判得偏严、多问一句。这是可以接受的方向：多问一句的代价，远小于自信地答错。</p></div>
+  </section>
+
+  <section id="check">
+    <div class="sec-head"><span class="sec-num">7</span><h2>检查回答：模型也会出错</h2></div>
+    <p>模型写完不等于结束。harness 会再检查一遍，下面每一条都是模拟器测试时真实遇到过的问题：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>问题</th><th>处理方式</th></tr></thead>
+        <tbody>
+          <tr><td>回答是空的</td><td>去掉历史，只带问题重问一次；还是空就报错</td></tr>
+          <tr><td>引用写坏了</td><td>模型把 <code>[M1]</code> 写成 <code>[刘1]</code>，或在行尾编出 <code>[猫的信息]</code>：检测出来并从回答里去掉</td></tr>
+          <tr><td>引用了没给过的编号</td><td>记为无效引用，在「输出校验」里显示</td></tr>
+          <tr><td>假事实</td><td>从问句里提取的事实、值为“未知”的事实，一律不存进记忆本</td></tr>
+          <tr><td>占位符</td><td>回答里的 <code>[PHONE_1]</code> 换回真实号码再显示；存进数据库的仍是占位符</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>还有一个细节：<strong>streaming 时看到的字只是预览，最后的 final 才是正式答案。</strong>校验去掉坏标签、换回占位符之后，聊天框里的文字会被正式版本替换。这也是真实系统的做法。</p>
+  </section>
+
+  <section id="try">
+    <div class="sec-head"><span class="sec-num">8</span><h2>用模拟器亲手验证</h2></div>
+    <p>每个概念都能在模拟器里看到。建议按这个顺序试：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>想看的概念</th><th>怎么做</th><th>看哪里</th></tr></thead>
+        <tbody>
+          <tr><td>模型没有记忆</td><td>随便问两句</td><td>「上下文组装 → 完整 Prompt」：之前的对话是被重新塞进去的</td></tr>
+          <tr><td>记忆三层</td><td>「示例 Demo → 记忆是怎么工作的」</td><td>记忆本、「记忆提取」的相似度分数条</td></tr>
+          <tr><td>判断不了就问</td><td>「示例 Demo → 上下文不够时」</td><td>「上下文检查」：试了几轮、引用了什么、✓ 还是 ✗</td></tr>
+          <tr><td>规则 vs 模型</td><td>「示例 Demo → 五条路线巡礼」</td><td>「意图路由」：规则判定还是模型判定</td></tr>
+          <tr><td>隐私保护</td><td>「示例 Demo → 隐私脱敏」</td><td>「隐私脱敏」和「输出校验」：号码被换掉又换回来</td></tr>
+          <tr><td>每一步的细节</td><td>打开「单步」，自己问一句</td><td>中间的卡片会在每一步停下来</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted" style="font-size:14px">右边显示的耗时都是真实值。很多步骤不到 1 毫秒，所以中间的卡片是放慢的回放；左边聊天框的文字永远是模型一写出来就显示。</p>
+  </section>
+
+  <section id="real">
+    <div class="sec-head"><span class="sec-num">9</span><h2>真正上线的系统还会多做什么</h2></div>
+    <p>模拟器是简化版，流程是真实的，但省掉了上线必需的一些部分：</p>
+    <ul class="plain">
+      <li><strong>身份和权限：</strong>谁能用、能看到谁的数据、每人每分钟能问几次。</li>
+      <li><strong>缓存和后台任务：</strong>把最近的对话放进 Redis 加速；长期记忆的提取放到后台慢慢做，而且要用户同意。</li>
+      <li><strong>更强的隐私保护：</strong>用专门的工具识别个人信息，而不是几条格式规则；追踪哪些数据能发给云端模型。</li>
+      <li><strong>工具调用：</strong>让模型去查天气、搜资料、算数，再根据结果回答（模拟器里没做）。</li>
+      <li><strong>监控和评估：</strong>记录每一次调用的耗时和花费，定期抽样检查回答质量。</li>
+      <li><strong>更大的模型：</strong>云端模型比 4B 强得多，但规则、记忆、检查这一整套 harness 依然需要。模型越强，harness 要防的问题会变，但不会消失。</li>
+    </ul>
+  </section>
+
+  <section id="terms">
+    <div class="sec-head"><span class="sec-num">10</span><h2>术语表</h2></div>
+    <dl class="glossary">
+      <dt>Model 模型</dt><dd>读文字、写文字的那个部分。本身没有记忆。</dd>
+      <dt>Harness</dt><dd>包在模型外面、决定给它看什么和怎么处理它的结果的整套程序。</dd>
+      <dt>Prompt</dt><dd>每次交给模型的完整消息列表，也是模型能看到的全部内容。</dd>
+      <dt>Token</dt><dd>模型读写的最小单位，大约一个汉字或半个英文单词。</dd>
+      <dt>Streaming</dt><dd>模型每写出一点就立刻送出去，所以文字是一点点出现的。</dd>
+      <dt>Embedding</dt><dd>把一段文字变成一串数字，意思越接近，数字越接近，用来算相似度。</dd>
+      <dt>Context window</dt><dd>这里指一次带给模型的对话轮数：3 轮，必要时 5 轮。</dd>
+      <dt>Routing 路由</dt><dd>判断一句话该走哪条处理路线。</dd>
+      <dt>Redaction 脱敏</dt><dd>把个人信息换成占位符再交给模型。</dd>
+      <dt>Fail-closed</dt><dd>出问题时选择安全的一边：不确定就不做、就问，而不是继续往下猜。</dd>
+    </dl>
+  </section>
+
+  <footer>
+    <p>本报告以 AI Flow Simulator 为示意。文中的数字（相似度、耗时、例子里的对话）来自在本机用 Qwen3 4B 实测的结果；小模型每次的判断会有差异。</p>
+  </footer>
+</main>
