@@ -4,6 +4,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { connect } from "node:net";
+import { networkInterfaces } from "node:os";
 import { join } from "node:path";
 import { BACKEND_DIR, ENV_FILE, FRONTEND_DIR, ROOT, loadEnv } from "./env.mjs";
 
@@ -54,7 +55,16 @@ const children = [
   }),
 ];
 
-console.log(`\n打开 · Open: http://localhost:${env.frontendPort}\n`);
+console.log(`\n打开 · Open: http://localhost:${env.frontendPort}`);
+if (process.env.FRONTEND_HOST === "0.0.0.0") {
+  // Shared on the network: list the addresses others can use.
+  const lan = Object.values(networkInterfaces())
+    .flat()
+    .filter((a) => a && a.family === "IPv4" && !a.internal && !a.address.startsWith("169.254"))
+    .map((a) => `http://${a.address}:${env.frontendPort}`);
+  console.log(`同一网络里的其他人可以打开 · Others on the same network: ${lan.join("  ")}`);
+}
+console.log("");
 
 /** Stop a child and everything it started (uvicorn's reloader has workers). */
 const killTree = (child) => {
