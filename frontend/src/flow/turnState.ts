@@ -61,3 +61,22 @@ export function focusStage(turn: TurnState): StageState | undefined {
     [...turn.stages].reverse().find((s) => s.status !== "pending")
   );
 }
+
+export type ViewedStage = { turnId: string; stageId: StageId };
+
+/** Browse only stages already shown, without replaying their events or effects. */
+export function stageNavigation(turn: TurnState | null, viewed: ViewedStage | null) {
+  const live = turn ? focusStage(turn) : undefined;
+  const selected = viewed?.turnId === turn?.turnId
+    ? turn?.stages.find((stage) => stage.id === viewed?.stageId && stage.status !== "pending")
+    : undefined;
+  const focus = selected ?? live;
+  const visited = turn?.stages.filter((stage) => stage.status !== "pending") ?? [];
+  const index = visited.findIndex((stage) => stage.id === focus?.id);
+  return {
+    focus,
+    previous: index > 0 ? visited[index - 1] : undefined,
+    next: index >= 0 ? visited[index + 1] : undefined,
+    isReviewing: !!focus && focus.id !== live?.id,
+  };
+}

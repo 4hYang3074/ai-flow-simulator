@@ -1,3 +1,4 @@
+import { t } from "../preferences";
 import { useCallback, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Panel } from "./Panel";
@@ -5,8 +6,8 @@ import { StepCard } from "./flow/StepCard";
 import { RouteTimeline } from "./flow/RouteTimeline";
 import { PlaybackControls } from "./flow/PlaybackControls";
 import { StageFlightLayer, useStageFlights } from "./flow/StageFlights";
-import { ERRORS, STAGES } from "../flow/stages";
-import { focusStage, type FlowEvent } from "../flow/turnState";
+import { ERRORS } from "../flow/stages";
+import { stageNavigation, type ViewedStage, type FlowEvent } from "../flow/turnState";
 import { usePlayback, type PlaybackSettings } from "../hooks/usePlayback";
 import type { FlowLog } from "../hooks/useChat";
 import { DURATION, EASE_OUT } from "../motion";
@@ -20,7 +21,8 @@ type Props = { flow: FlowLog | null; onShown?: (event: FlowEvent) => void };
  * route on the right. Each finished step flies from the card to its row.
  */
 export function FlowPanel({ flow, onShown }: Props) {
-  const [settings, setSettings] = useState<PlaybackSettings>({ speed: 1, stepMode: false });
+  const [settings, setSettings] = useState<PlaybackSettings>({ speed: 1, stepMode: true });
+  const [viewed, setViewed] = useState<ViewedStage | null>(null);
   const flights = useStageFlights(flow?.turnId);
   const shown = useCallback(
     (event: FlowEvent) => {
@@ -29,8 +31,28 @@ export function FlowPanel({ flow, onShown }: Props) {
     },
     [flights, onShown],
   );
-  const { turn, waiting, next, lagging, actualStage, actualFinished } = usePlayback(flow, settings, shown);
-  const focus = turn ? focusStage(turn) : undefined;
+  const { turn, waiting, next, lagging, actualFinished } = usePlayback(flow, settings, shown);
+  const navigation = stageNavigation(turn, viewed);
+  const { focus, isReviewing } = navigation;
+  const canNext = !!navigation.next || (waiting && !isReviewing);
+  const onPrevious = () => {
+    if (!turn || !navigation.previous) return;
+    setSettings((current) => ({ ...current, stepMode: true }));
+    setViewed({ turnId: turn.turnId, stageId: navigation.previous.id });
+  };
+  const onNext = () => {
+    if (!turn) return;
+    if (navigation.next) {
+      setViewed({ turnId: turn.turnId, stageId: navigation.next.id });
+    } else if (waiting && !isReviewing) {
+      setViewed(null);
+      next();
+    }
+  };
+  const nextHint = navigation.next ? t("查看已经展示过的下一步")
+    : waiting ? t("点击后继续下一步")
+    : turn?.status === "done" || turn?.status === "failed" ? t("已经到最后一步")
+    : t("等待当前步骤完成");
 
   const replayBadge = (
     <AnimatePresence>
@@ -41,28 +63,26 @@ export function FlowPanel({ flow, onShown }: Props) {
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.8 }}
           transition={{ duration: DURATION.exit }}
-        >
-          ↺ 回放 Replay
-        </motion.span>
+        >{t("↺ 回放 Replay")}</motion.span>
       )}
     </AnimatePresence>
   );
 
   return (
     <>
-      <Panel title="当前步骤" subtitle="Current step" action={replayBadge}>
+      <Panel title={t("当前步骤")} subtitle="Current step" action={replayBadge}>
         {!turn ? (
           <Idle />
         ) : !turn.stages.length ? (
           turn.status === "failed" && turn.errorCode ? (
-            <p className="m-4 rounded-xl border border-err/40 bg-err/10 p-3 text-sm text-err">{ERRORS[turn.errorCode]}</p>
+            <p className="m-4 rounded-xl border border-err/40 bg-err/10 p-3 text-sm text-err">{t(ERRORS[turn.errorCode])}</p>
           ) : (
-            <Idle label="开始处理… · Starting…" />
+            <Idle label={t("开始处理… · Starting…")} />
           )
         ) : (
           <>
             <AnimatePresence initial={false}>
-              {lagging && (
+              {(lagging || isReviewing) && (
                 // Honest about pacing: the panel is a slowed replay, and this
                 // says where the backend really is.
                 <motion.p
@@ -71,26 +91,33 @@ export function FlowPanel({ flow, onShown }: Props) {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: DURATION.exit, ease: EASE_OUT }}
-                >
-                  放慢回放中，实际
-                  {actualFinished ? "已经完成" : `已到「${actualStage ? STAGES[actualStage].zh : "…"}」`} · Slowed
-                  replay — {actualFinished ? "already finished" : `actually at ${actualStage ? STAGES[actualStage].en : "…"}`}
+                >{isReviewing ? t("正在回看已展示的步骤，不会重新执行")
+                  : !settings.stepMode ? t("正在自动回放，可以点上一步停下来回看")
+                  : actualFinished ? t("后端已完成，可以用上一步和下一步查看流程")
+                  : t("正在按步骤展示，完成后可点下一步")}
                 </motion.p>
               )}
             </AnimatePresence>
             {focus && <StepCard turn={turn} focus={focus} liveTokens={flow?.tokens ?? 0} />}
           </>
         )}
-        <PlaybackControls settings={settings} onChange={setSettings} waiting={waiting} onNext={next} />
+        <PlaybackControls
+          settings={settings}
+          onChange={(value) => { setSettings(value); if (!value.stepMode) setViewed(null); }}
+          hasSteps={!!focus}
+          canPrevious={!!navigation.previous}
+          canNext={canNext}
+          nextHint={nextHint}
+          onPrevious={onPrevious}
+          onNext={onNext}
+        />
       </Panel>
 
-      <Panel title="完整流程" subtitle="Full route" className="md:col-span-2 xl:col-span-1">
+      <Panel title={t("完整流程")} subtitle="Full route" className="md:col-span-2 xl:col-span-1">
         {turn && turn.stages.length ? (
           <RouteTimeline turn={turn} focus={focus} landed={flights.landed} />
         ) : (
-          <div className="flex flex-1 items-center justify-center px-6 text-center text-xs text-muted">
-            每一步完成后会飘到这里的正确位置 · Finished steps land here
-          </div>
+          <div className="flex flex-1 items-center justify-center px-6 text-center text-xs text-muted">{t("每一步完成后会飘到这里的正确位置 · Finished steps land here")}</div>
         )}
       </Panel>
 
@@ -122,8 +149,7 @@ function Idle({ label }: { label?: string }) {
           <p className="text-sm">{label}</p>
         ) : (
           <>
-            <p className="text-sm">等待第一条消息</p>
-            <p className="text-xs text-muted">Waiting for the first message</p>
+            <p className="text-sm">{t("等待第一条消息")}</p>
           </>
         )}
       </div>

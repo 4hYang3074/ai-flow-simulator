@@ -73,7 +73,7 @@ export function usePlayback(
       if (event.type === "stage_start") holdUntil.current = now + HOLD_ACTIVE_MS * scale;
       if (event.type === "stage_end") {
         holdUntil.current = now + HOLD_DONE_MS * scale;
-        if (stepMode && event.status === "done" && event.stage !== lastStage.current) {
+        if (stepMode && event.status === "done" && (event.stage !== lastStage.current || event.stage === "route")) {
           waitingRef.current = true;
           setWaiting(true);
           return;
@@ -109,6 +109,7 @@ export function usePlayback(
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
   const next = useCallback(() => {
+    holdUntil.current = 0;
     waitingRef.current = false;
     setWaiting(false);
   }, []);

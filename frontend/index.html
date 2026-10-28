@@ -3,6 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      try {
+        const theme = localStorage.getItem('flow-sim.theme.v1');
+        document.documentElement.classList.toggle('dark', theme === 'dark' || (theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches));
+        document.documentElement.lang = localStorage.getItem('flow-sim.language.v1') === 'en' ? 'en' : 'zh-Hans';
+      } catch { document.documentElement.classList.toggle('dark', matchMedia('(prefers-color-scheme: dark)').matches); }
+    </script>
     <title>AI Flow Simulator</title>
   </head>
   <body>

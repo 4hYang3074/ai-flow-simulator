@@ -1,3 +1,4 @@
+import { t, pick } from "../preferences";
 import { AnimatePresence, motion } from "motion/react";
 import type { MemoryFact } from "../api/memory";
 
@@ -24,14 +25,10 @@ export function MemoryNotebook({ facts, onOpen }: Props) {
 
   return (
     <div className="flex items-start gap-2 border-b border-border px-4 py-2.5">
-      <button type="button" onClick={onOpen} className="mt-0.5 shrink-0 text-xs text-muted hover:text-text">
-        📒 记忆本
-      </button>
+      <button type="button" onClick={onOpen} className="mt-0.5 shrink-0 text-xs text-muted hover:text-text">{t("📒 记忆本")}</button>
       <div data-memory-target className="flex min-h-6 min-w-0 flex-1 flex-wrap gap-1.5">
         {facts.length === 0 && (
-          <span className="py-0.5 text-xs text-muted">
-            你说过的重要事情会记在这里 · Facts you share land here
-          </span>
+          <span className="py-0.5 text-xs text-muted">{t("你说过的重要事情会记在这里 · Facts you share land here")}</span>
         )}
         <AnimatePresence initial={false} mode="popLayout">
           {shown.map((f) => (
@@ -40,7 +37,7 @@ export function MemoryNotebook({ facts, onOpen }: Props) {
               type="button"
               layout
               onClick={onOpen}
-              title={`原文引用：「${f.quote}」`}
+              title={pick(`原文引用：「${f.quote}」`, `Source quote: “${f.quote}”`)}
               className="max-w-full truncate rounded-full border border-accent/40 bg-accent/10 px-2.5 py-0.5 text-xs"
               {...POP_IN}
               exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.2 } }}

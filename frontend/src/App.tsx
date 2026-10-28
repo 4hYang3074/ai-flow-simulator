@@ -1,3 +1,4 @@
+import { AppearanceControls, useLanguageSwitch, t } from "./preferences";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { ChatPanel } from "./components/ChatPanel";
 import { FlowPanel } from "./components/FlowPanel";
@@ -20,16 +21,17 @@ function recalledScores(flow: FlowLog | null): Map<string, number> {
 }
 
 export default function App() {
+  useLanguageSwitch();
   const health = useHealth();
   const { id, startNew } = useConversationId();
   return (
     <div className="flex h-full flex-col">
-      <header className="flex h-14 shrink-0 items-center justify-between gap-3 px-4 md:px-6">
+      <header className="flex min-h-16 flex-wrap shrink-0 items-center justify-between gap-3 px-4 md:px-6">
         <div className="flex min-w-0 items-baseline gap-2">
-          <h1 className="truncate text-base font-semibold">AI Flow Simulator</h1>
-          <span className="hidden text-sm text-muted sm:inline">AI 流程模拟器</span>
+          <h1 className="truncate text-base font-semibold">{t("AI 流程模拟器")}</h1>
+
         </div>
-        <StatusPill state={health} />
+        <div className="flex items-center gap-2"><StatusPill state={health} /><AppearanceControls /></div>
       </header>
       {/* Keyed by the conversation: a new chat starts every panel, memory
           view, replay and demo from scratch. */}

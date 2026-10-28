@@ -2,14 +2,14 @@ import type { ReactNode } from "react";
 
 type Props = {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   action?: ReactNode;
   /** Extra grid placement, e.g. spanning columns on a tablet. */
   className?: string;
   children: ReactNode;
 };
 
-export function Panel({ title, subtitle, action, className = "", children }: Props) {
+export function Panel({ title, action, className = "", children }: Props) {
   return (
     // On a phone the panels stack, each with a fixed height that scrolls
     // inside, so a long chat never pushes the input or the workflow away.
@@ -18,7 +18,7 @@ export function Panel({ title, subtitle, action, className = "", children }: Pro
     >
       <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border px-4">
         <h2 className="text-sm font-semibold">
-          {title} <span className="font-normal text-muted">{subtitle}</span>
+          {title}
         </h2>
         {action}
       </header>

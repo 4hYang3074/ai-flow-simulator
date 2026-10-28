@@ -1,3 +1,4 @@
+import { t, pick } from "../preferences";
 import { AnimatePresence, motion } from "motion/react";
 import type { HealthState } from "../hooks/useHealth";
 import { DURATION, EASE_IN, EASE_OUT } from "../motion";
@@ -41,18 +42,18 @@ function viewFor(state: HealthState): View {
     return {
       key: "missing",
       tone: "warn",
-      label: `缺少模型 · Missing ${missing.join(", ")}`,
+      label: pick(`缺少模型 ${missing.join(", ")}`, `Missing ${missing.join(", ")}`),
       short: "缺少模型",
-      hint: `运行 npm run setup，或 ollama pull ${missing[0]}`,
+      hint: pick(`运行 npm run setup，或 ollama pull ${missing[0]}`, `Run npm run setup or ollama pull ${missing[0]}`),
     };
   }
   const chat = report.models.find((m) => m.role === "chat")?.name ?? "model";
   return {
     key: "ready",
     tone: "ok",
-    label: `${chat} 已就绪 · Ready`,
+    label: pick(`${chat} 已就绪`, `${chat} ready`),
     short: "模型已就绪",
-    hint: `${chat} 可以使用 · Local models are ready`,
+    hint: pick(`${chat} 可以使用`, `${chat} is ready`),
   };
 }
 
@@ -68,7 +69,7 @@ export function StatusPill({ state }: { state: HealthState }) {
   return (
     <div
       className="relative flex h-8 min-w-0 shrink-0 items-center overflow-hidden rounded-full border border-border bg-surface px-3 text-xs"
-      title={view.hint}
+      title={t(view.hint)}
       role="status"
       aria-live="polite"
     >
@@ -92,8 +93,8 @@ export function StatusPill({ state }: { state: HealthState }) {
             )}
             <span className={`relative size-2 rounded-full ${DOT[view.tone]}`} />
           </span>
-          <span className="truncate sm:hidden">{view.short}</span>
-          <span className="hidden truncate sm:inline">{view.label}</span>
+          <span className="truncate sm:hidden">{t(view.short)}</span>
+          <span className="hidden truncate sm:inline">{t(view.label)}</span>
         </motion.span>
       </AnimatePresence>
     </div>

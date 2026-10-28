@@ -1,3 +1,4 @@
+import { t, pick } from "../../preferences";
 import { motion } from "motion/react";
 import {
   checkAttempts,
@@ -46,24 +47,23 @@ export function StageDetails({ stage }: { stage: StageState }) {
       <dl className="grid grid-cols-1 gap-x-4 gap-y-2 rounded-xl border border-border bg-surface-2 p-3 text-sm sm:grid-cols-2">
         {facts.map((f) => (
           <div key={f.label} className="flex min-w-0 flex-col">
-            <dt className="text-xs text-muted">{f.label}</dt>
+            <dt className="text-xs text-muted">{t(f.label)}</dt>
             <dd className="truncate tabular-nums">{f.value}</dd>
           </div>
         ))}
       </dl>
 
-      {note && RECALL_NOTES[note] && <p className="text-xs leading-relaxed text-muted">{RECALL_NOTES[note]}</p>}
+      {note && RECALL_NOTES[note] && <p className="text-xs leading-relaxed text-muted">{t(RECALL_NOTES[note])}</p>}
 
       {candidates.length > 0 && threshold != null && (
         <div className="flex flex-col gap-2">
-          <p className="text-xs text-muted">
-            相似度检索 · Similarity search（≥ {threshold} 才会被带回 · kept at or above {threshold}）
+          <p className="text-xs text-muted">{pick(`相似度检索（≥ ${threshold} 才会带回）`, `Similarity search (kept at or above ${threshold})`)}
           </p>
           <ol className="flex flex-col gap-2">
             {candidates.map((c, i) => (
               <li key={c.user_message_id} className="flex flex-col gap-1 text-xs">
                 <div className="flex min-w-0 items-center gap-2">
-                  <span className={c.picked ? "text-ok" : "text-muted"}>{c.picked ? "✓ 带回" : "✗ 不用"}</span>
+                  <span className={c.picked ? "text-ok" : "text-muted"}>{c.picked ? t("✓ 带回") : t("✗ 不用")}</span>
                   <span className="min-w-0 flex-1 truncate">{c.question}</span>
                   <span className="text-muted">
                     <CountUp value={c.score} decimals={2} duration={0.6} />
@@ -92,15 +92,15 @@ export function StageDetails({ stage }: { stage: StageState }) {
               className={`rounded-lg border px-3 py-2 text-xs ${a.sufficient ? "border-ok/40 bg-ok/5" : "border-border"}`}
             >
               <p>
-                {a.sufficient ? "✓" : "✗"} 用最近 {a.pairs} 轮判断：{a.sufficient ? "够了" : "不够"}
-                {a.invalid && "（模型输出格式错误，按不够处理）"}
+                {a.sufficient ? "✓" : "✗"} {pick(`用最近 ${a.pairs} 轮判断：`, `Last ${a.pairs} turns: `)}{a.sufficient ? t("够了") : t("不够")}
+                {a.invalid && t("（模型输出格式错误，按不够处理）")}
               </p>
               {a.references.length === 0 && !a.invalid && (
-                <p className="mt-0.5 text-muted">这句话没有指向前文的词 · nothing points back</p>
+                <p className="mt-0.5 text-muted">{t("这句话没有指向前文的词 · nothing points back")}</p>
               )}
               {a.references.map((r, j) => (
                 <p key={j} className="mt-0.5 text-muted">
-                  「{r.phrase || "—"}」→ {r.quote ? `「${r.quote}」` : "（模型没找到）"} {r.found ? "✓ 前文里有" : "✗ 前文里对不上"}
+                  「{r.phrase || "—"}」→ {r.quote ? `「${r.quote}」` : t("（模型没找到）")} {r.found ? t("✓ 前文里有") : t("✗ 前文里对不上")}
                 </p>
               ))}
             </li>
@@ -109,7 +109,7 @@ export function StageDetails({ stage }: { stage: StageState }) {
       )}
 
       {memorizeNote && MEMORIZE_NOTES[memorizeNote] && (
-        <p className="text-xs leading-relaxed text-muted">{MEMORIZE_NOTES[memorizeNote]}</p>
+        <p className="text-xs leading-relaxed text-muted">{t(MEMORIZE_NOTES[memorizeNote])}</p>
       )}
 
       {(saved.length > 0 || rejected.length > 0) && (
@@ -118,17 +118,17 @@ export function StageDetails({ stage }: { stage: StageState }) {
             <li key={f.id} className="rounded-lg border border-ok/40 bg-ok/5 px-3 py-2 text-xs">
               <p>
                 <span className="text-ok">✓ {f.field}</span>：{f.value}
-                {f.revision > 1 && <span className="text-muted"> · 第 {f.revision} 版</span>}
+                {f.revision > 1 && <span className="text-muted">{pick(` · 第 ${f.revision} 版`, ` · revision ${f.revision}`)}</span>}
               </p>
-              <p className="mt-0.5 text-muted">原文引用 Quote：「{f.quote}」</p>
+              <p className="mt-0.5 text-muted">{t("原文引用 Quote：「")}{f.quote}」</p>
             </li>
           ))}
           {rejected.map((r, i) => (
             <li key={`r${i}`} className="rounded-lg border border-border px-3 py-2 text-xs text-muted">
               <p>
-                ✗ {r.field || "—"}：{r.value || "—"} · {REJECT_REASONS[r.reason] ?? r.reason}
+                ✗ {r.field || "—"}：{r.value || "—"} · {t(REJECT_REASONS[r.reason] ?? r.reason)}
               </p>
-              {r.quote && <p className="mt-0.5">模型给的引用：「{r.quote}」</p>}
+              {r.quote && <p className="mt-0.5">{t("模型给的引用：「")}{r.quote}」</p>}
             </li>
           ))}
         </ol>
@@ -136,9 +136,9 @@ export function StageDetails({ stage }: { stage: StageState }) {
 
       {stage.id === "evidence" && (
         <div className="flex flex-col gap-1.5">
-          <p className="text-xs text-muted">这次给模型的编号材料 · Labelled materials in this prompt</p>
+          <p className="text-xs text-muted">{t("这次给模型的编号材料 · Labelled materials in this prompt")}</p>
           {materials.length === 0 ? (
-            <p className="text-xs text-muted">没有：这一轮只靠最近的对话和新问题。· None this turn.</p>
+            <p className="text-xs text-muted">{t("没有：这一轮只靠最近的对话和新问题。· None this turn.")}</p>
           ) : (
             <ol className="flex flex-col gap-1">
               {materials.map((m) => (

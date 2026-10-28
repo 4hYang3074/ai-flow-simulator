@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { MotionConfig } from "motion/react";
+import { LanguageTransition } from "./preferences";
 import App from "./App";
 import "./index.css";
 
@@ -9,7 +10,7 @@ createRoot(document.getElementById("root")!).render(
     {/* "user": every animation falls back to a plain fade when the system
         asks for reduced motion. */}
     <MotionConfig reducedMotion="user">
-      <App />
+      <LanguageTransition><App /></LanguageTransition>
     </MotionConfig>
   </StrictMode>,
 );

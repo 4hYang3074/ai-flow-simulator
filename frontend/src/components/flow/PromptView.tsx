@@ -1,3 +1,4 @@
+import { t } from "../../preferences";
 import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { PromptLine } from "../../flow/facts";
@@ -27,9 +28,9 @@ export function PromptView({ lines }: { lines: PromptLine[] }) {
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-muted">模型这次读到的消息 · What the model reads</p>
+        <p className="text-xs text-muted">{t("模型这次读到的消息 · What the model reads")}</p>
         <button type="button" className="shrink-0 text-xs text-accent hover:underline" onClick={() => setFull(!full)}>
-          {full ? "收起 Collapse" : "完整 Prompt · Full"}
+          {full ? t("收起 Collapse") : t("完整 Prompt · Full")}
         </button>
       </div>
       <ol className="flex flex-col gap-1">
@@ -39,7 +40,7 @@ export function PromptView({ lines }: { lines: PromptLine[] }) {
             <li key={i} className={`flex min-w-0 flex-col gap-1 text-xs ${full ? `border-l-2 pl-2 ${tone.edge}` : ""}`}>
               <div className="flex min-w-0 items-start gap-2">
                 <span className={`shrink-0 rounded px-1.5 py-0.5 font-mono ${tone.chip}`}>
-                  {SOURCE_LABEL[line.source] ?? line.role}
+                  {t(SOURCE_LABEL[line.source] ?? line.role)}
                   {line.source === "recent" && ` · ${line.role}`}
                 </span>
                 {!full && <span className="min-w-0 truncate pt-0.5 text-muted">{line.preview}</span>}

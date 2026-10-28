@@ -14,20 +14,11 @@
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0f1115;
-    --surface: #171a20;
-    --surface-2: #1e222a;
-    --border: #2a2f39;
-    --text: #e8eaee;
-    --text-muted: #9aa1ad;
-    --accent: #8b94ff;
-    --ok: #3fc27a;
-    --warn: #e0a43a;
-    --err: #f07070;
-    color-scheme: dark;
-  }
+.dark {
+  --bg: #1f1e1c; --surface: #282725; --surface-2: #32312e;
+  --border: #494640; --text: #e9e5df; --text-muted: #b4aea5;
+  --accent: #9ba3ff; --ok: #6bd69a; --warn: #efbb61; --err: #ff9393;
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -142,3 +133,17 @@ body {
     animation: none;
   }
 }
+
+.bg-accent.text-white { background-color: #4f5bd5; }
+.bg-err.text-white { background-color: #b52d38; }
+::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+::view-transition-new(root) { z-index: 1; }
+::view-transition-old(root) { z-index: 0; }
+[data-lang-state="blurring"] *, [data-lang-state="focusing"] * {
+  -webkit-text-fill-color: color-mix(in srgb, currentColor var(--lang-fill, 100%), transparent);
+  text-shadow: 0 0 var(--lang-blur, 0px) color-mix(in srgb, currentColor calc(100% - var(--lang-fill, 100%)), transparent);
+}
+.theme-icon { position: absolute; transition: transform 350ms cubic-bezier(.165,.84,.44,1), opacity 350ms; }
+.theme-icon.hidden-icon { transform: rotate(-90deg) scale(.6); opacity: 0; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .theme-icon { transition: none; } }

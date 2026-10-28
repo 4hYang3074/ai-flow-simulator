@@ -1,3 +1,4 @@
+import { t, pick } from "../preferences";
 import type { StageId } from "./protocol";
 
 export type Fact = { label: string; value: string };
@@ -42,129 +43,129 @@ export function stageFacts(stage: StageId, summary: Summary): Fact[] {
   if (!summary) return [];
   switch (stage) {
     case "receive":
-      return [{ label: "字数 Characters", value: `${plain(summary.chars)} / ${plain(summary.limit)}` }];
+      return [{ label: t("字数 Characters"), value: `${plain(summary.chars)} / ${plain(summary.limit)}` }];
     case "redact": {
       const found = (summary.found ?? {}) as Record<string, number>;
       const kinds = Object.entries(found).map(([k, n]) => `${k} × ${n}`);
       return [
-        { label: "找到的个人信息 Found", value: kinds.length ? kinds.join(", ") : "无 none" },
-        { label: "替换后 Redacted", value: plain(summary.redacted_preview) },
+        { label: t("找到的个人信息 Found"), value: kinds.length ? kinds.join(", ") : t("无 none") },
+        { label: t("替换后 Redacted"), value: plain(summary.redacted_preview) },
       ];
     }
     case "route": {
       const facts: Fact[] = [
-        { label: "判定方式 Decided by", value: DECIDED_BY[String(summary.decided_by)] ?? plain(summary.decided_by) },
-        { label: "路线 Route", value: plain(summary.route) },
+        { label: t("判定方式 Decided by"), value: DECIDED_BY[String(summary.decided_by)] ?? plain(summary.decided_by) },
+        { label: t("路线 Route"), value: plain(summary.route) },
       ];
-      if (summary.rule) facts.push({ label: "命中规则 Rule", value: RULES[String(summary.rule)] ?? String(summary.rule) });
-      if (summary.matched) facts.push({ label: "命中文字 Matched", value: `「${summary.matched}」` });
+      if (summary.rule) facts.push({ label: t("命中规则 Rule"), value: RULES[String(summary.rule)] ?? String(summary.rule) });
+      if (summary.matched) facts.push({ label: t("命中文字 Matched"), value: `「${summary.matched}」` });
       if (summary.decided_by === "model") {
-        facts.push({ label: "模型理由 Reason", value: summary.model_invalid ? "输出无效，改用默认 invalid, fell back" : plain(summary.model_reason) });
-        facts.push({ label: "模型耗时 Model time", value: ms(summary.model_ms) });
+        facts.push({ label: t("模型理由 Reason"), value: summary.model_invalid ? t("输出无效，改用默认 invalid, fell back") : plain(summary.model_reason) });
+        facts.push({ label: t("模型耗时 Model time"), value: ms(summary.model_ms) });
       }
       return facts;
     }
     case "quick_reply":
       return [
-        { label: "类型 Kind", value: SMALL_TALK[String(summary.kind)] ?? plain(summary.kind) },
-        { label: "模型调用 Model calls", value: plain(summary.model_calls) },
+        { label: t("类型 Kind"), value: t(SMALL_TALK[String(summary.kind)] ?? "") || plain(summary.kind) },
+        { label: t("模型调用 Model calls"), value: plain(summary.model_calls) },
       ];
     case "correction":
       return [
-        { label: "纠正用语 Cue", value: summary.cue ? `「${summary.cue}」` : "—" },
-        { label: "上一轮问题 Previous question", value: plain(summary.previous_question) },
-        { label: "上一轮回答 Previous answer", value: plain(summary.previous_answer) },
-        { label: "材料编号 Label", value: plain(summary.label) },
+        { label: t("纠正用语 Cue"), value: summary.cue ? `「${summary.cue}」` : "—" },
+        { label: t("上一轮问题 Previous question"), value: plain(summary.previous_question) },
+        { label: t("上一轮回答 Previous answer"), value: plain(summary.previous_answer) },
+        { label: t("材料编号 Label"), value: plain(summary.label) },
       ];
     case "reference":
       if (!summary.resolved) {
         return [
-          { label: "指代 Pointer", value: summary.cue ? `「${summary.cue}」` : "—" },
-          { label: "结果 Result", value: "找不到，改为反问 · not found, asking" },
-          { label: "原因 Reason", value: CLARIFY_REASONS[String(summary.reason)] ?? plain(summary.reason) },
-          { label: "模型调用 Model calls", value: "0" },
+          { label: t("指代 Pointer"), value: summary.cue ? `「${summary.cue}」` : "—" },
+          { label: t("结果 Result"), value: t("找不到，改为反问 · not found, asking") },
+          { label: t("原因 Reason"), value: t(CLARIFY_REASONS[String(summary.reason)] ?? "") || plain(summary.reason) },
+          { label: t("模型调用 Model calls"), value: "0" },
         ];
       }
       return [
-        { label: "指代 Pointer", value: summary.cue ? `「${summary.cue}」` : "—" },
+        { label: t("指代 Pointer"), value: summary.cue ? `「${summary.cue}」` : "—" },
         {
-          label: "指向 Points at",
+          label: t("指向 Points at"),
           value:
             summary.target === "list_item"
-              ? `上一个回答的第 ${summary.index} 项（共 ${summary.list_size} 项）`
-              : "上一轮对话 the previous exchange",
+              ? pick(`上一个回答的第 ${summary.index} 项（共 ${summary.list_size} 项）`, `Item ${summary.index} of ${summary.list_size} in the previous answer`)
+              : t("上一轮对话 the previous exchange"),
         },
-        { label: "解析结果 Resolved", value: plain(summary.resolved_text) },
-        { label: "材料编号 Label", value: plain(summary.label) },
+        { label: t("解析结果 Resolved"), value: plain(summary.resolved_text) },
+        { label: t("材料编号 Label"), value: plain(summary.label) },
       ];
     case "memory_recall":
       return [
-        { label: "短期记忆 Recent", value: `${count(summary.recent_pairs)} / ${plain(summary.recent_limit)} 组` },
-        { label: "更早的对话 Older", value: `${plain(summary.older_pairs)} 组` },
-        { label: "相似度阈值 Threshold", value: plain(summary.threshold) },
-        { label: "向量化耗时 Embedding", value: ms(summary.embed_ms) },
+        { label: t("短期记忆 Recent"), value: `${count(summary.recent_pairs)} / ${plain(summary.recent_limit)}` },
+        { label: t("更早的对话 Older"), value: `${plain(summary.older_pairs)}` },
+        { label: t("相似度阈值 Threshold"), value: plain(summary.threshold) },
+        { label: t("向量化耗时 Embedding"), value: ms(summary.embed_ms) },
       ];
     case "context_check": {
       const attempts = Array.isArray(summary.attempts) ? summary.attempts : [];
       if (summary.checked_by === "skipped") {
         return [
-          { label: "结果 Result", value: "不用检查 · not needed" },
-          { label: "原因 Reason", value: SKIP_REASONS[String(summary.skip_reason)] ?? plain(summary.skip_reason) },
+          { label: t("结果 Result"), value: t("不用检查 · not needed") },
+          { label: t("原因 Reason"), value: t(SKIP_REASONS[String(summary.skip_reason)] ?? "") || plain(summary.skip_reason) },
         ];
       }
       return [
-        { label: "结果 Result", value: CHECK_OUTCOMES[String(summary.outcome)] ?? plain(summary.outcome) },
-        { label: "检查过的轮数 Tried", value: attempts.map((a: { pairs: number }) => `${a.pairs} 轮`).join(" → ") || "—" },
-        { label: "最终用的轮数 Window", value: `${plain(summary.window)} 轮` },
+        { label: t("结果 Result"), value: t(CHECK_OUTCOMES[String(summary.outcome)] ?? "") || plain(summary.outcome) },
+        { label: t("检查过的轮数 Tried"), value: attempts.map((a: { pairs: number }) => `${a.pairs}`).join(" → ") || "—" },
+        { label: t("最终用的轮数 Window"), value: `${plain(summary.window)}` },
       ];
     }
     case "context":
       return [
-        { label: "带编号的材料 Materials", value: `${count(summary.materials)} 条` },
-        { label: "最近的对话 Recent", value: `${plain(summary.recent_pairs)} 组` },
-        { label: "消息总数 Messages", value: plain(summary.total_messages) },
-        { label: "Prompt 字数 Characters", value: plain(summary.prompt_chars) },
+        { label: t("带编号的材料 Materials"), value: `${count(summary.materials)}` },
+        { label: t("最近的对话 Recent"), value: `${plain(summary.recent_pairs)}` },
+        { label: t("消息总数 Messages"), value: plain(summary.total_messages) },
+        { label: t("Prompt 字数 Characters"), value: plain(summary.prompt_chars) },
       ];
     case "evidence":
       return [
-        { label: "材料 Materials", value: `${count(summary.manifest)} 条` },
-        { label: "消息数 Messages", value: plain(summary.prompt_messages) },
-        { label: "Prompt 指纹 SHA-256", value: typeof summary.prompt_sha256 === "string" ? `${summary.prompt_sha256.slice(0, 16)}…` : "—" },
+        { label: t("材料 Materials"), value: `${count(summary.manifest)}` },
+        { label: t("消息数 Messages"), value: plain(summary.prompt_messages) },
+        { label: t("Prompt 指纹 SHA-256"), value: typeof summary.prompt_sha256 === "string" ? `${summary.prompt_sha256.slice(0, 16)}…` : "—" },
       ];
     case "generate":
       return [
-        { label: "模型 Model", value: plain(summary.model) },
-        { label: "首个 token First token", value: ms(summary.first_token_ms) },
-        { label: "输入 tokens Prompt", value: plain(summary.prompt_tokens) },
-        { label: "输出 tokens Output", value: plain(summary.output_tokens) },
-        { label: "速度 Speed", value: num(summary.tokens_per_second) == null ? "—" : `${summary.tokens_per_second} tok/s` },
+        { label: t("模型 Model"), value: plain(summary.model) },
+        { label: t("首个 token First token"), value: ms(summary.first_token_ms) },
+        { label: t("输入 tokens Prompt"), value: plain(summary.prompt_tokens) },
+        { label: t("输出 tokens Output"), value: plain(summary.output_tokens) },
+        { label: t("速度 Speed"), value: num(summary.tokens_per_second) == null ? "—" : `${summary.tokens_per_second} tok/s` },
       ];
     case "validate":
       return [
-        { label: "空回答重试 Retried", value: summary.retried_without_history ? "是 · 去掉历史重问了一次" : "否 no" },
-        { label: "有效引用 Valid citations", value: list(summary.citations_valid) },
-        { label: "无效引用 Invalid citations", value: list(summary.citations_invalid) },
-        { label: "写错的标签 Mangled (removed)", value: list(summary.citations_malformed) },
-        { label: "还原的占位符 Restored", value: plain(summary.placeholders_restored) },
+        { label: t("空回答重试 Retried"), value: summary.retried_without_history ? t("是 · 去掉历史重问了一次") : t("否 no") },
+        { label: t("有效引用 Valid citations"), value: list(summary.citations_valid) },
+        { label: t("无效引用 Invalid citations"), value: list(summary.citations_invalid) },
+        { label: t("写错的标签 Mangled (removed)"), value: list(summary.citations_malformed) },
+        { label: t("还原的占位符 Restored"), value: plain(summary.placeholders_restored) },
       ];
     case "memorize":
       return [
-        { label: "新记住的事实 Saved", value: `${count(summary.saved)} 条` },
-        { label: "被取代的旧事实 Superseded", value: `${count(summary.superseded)} 条` },
-        { label: "引用对不上被丢掉 Rejected", value: `${count(summary.rejected)} 条` },
-        { label: "记忆本总数 Notebook", value: summary.total_facts == null ? "—" : `${summary.total_facts} 条` },
-        { label: "模型耗时 Model time", value: ms(summary.model_ms) },
+        { label: t("新记住的事实 Saved"), value: `${count(summary.saved)}` },
+        { label: t("被取代的旧事实 Superseded"), value: `${count(summary.superseded)}` },
+        { label: t("引用对不上被丢掉 Rejected"), value: `${count(summary.rejected)}` },
+        { label: t("记忆本总数 Notebook"), value: summary.total_facts == null ? "—" : `${summary.total_facts}` },
+        { label: t("模型耗时 Model time"), value: ms(summary.model_ms) },
       ];
     case "persist":
       return [
-        { label: "已保存 Stored", value: `${plain(summary.stored_pairs)} 组问答` },
+        { label: t("已保存 Stored"), value: `${plain(summary.stored_pairs)}` },
         {
-          label: "向量索引 Embedding",
+          label: t("向量索引 Embedding"),
           value: summary.embedded
-            ? `已建立 · ${plain(summary.dimensions)} 维`
+            ? pick(`已建立 · ${plain(summary.dimensions)} 维`, `Indexed · ${plain(summary.dimensions)} dimensions`)
             : summary.skipped
-              ? "不建立：闲聊和反问不进可检索记忆"
-              : "未建立 · not indexed",
+              ? t("不建立：闲聊和反问不进可检索记忆")
+              : t("未建立 · not indexed"),
         },
       ];
     default:

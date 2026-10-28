@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLanguageSwitch } from "../preferences";
 import type { Demo } from "../flow/demos";
 import type { FlowEvent } from "../flow/turnState";
 
@@ -10,6 +11,7 @@ const GAP_MS = 1500;
  * the previous turn's end, and stops on an error or when asked.
  */
 export function useDemo(send: (text: string) => void, clearMemory: () => Promise<boolean>) {
+  const { language } = useLanguageSwitch();
   const [running, setRunning] = useState<{ demo: Demo; index: number } | null>(null);
   const timer = useRef<number | undefined>(undefined);
   const runningRef = useRef(running);
@@ -24,10 +26,12 @@ export function useDemo(send: (text: string) => void, clearMemory: () => Promise
     async (demo: Demo) => {
       stop();
       if (demo.fresh) await clearMemory();
-      setRunning({ demo, index: 0 });
-      send(demo.messages[0]);
+      // Snapshot the language once: later UI switches must not mix this script.
+      const script = { ...demo, messages: language === "en" ? demo.englishMessages : demo.messages };
+      setRunning({ demo: script, index: 0 });
+      send(script.messages[0]);
     },
-    [send, clearMemory, stop],
+    [send, clearMemory, stop, language],
   );
 
   /** Told about each event as the workflow panel shows it. */

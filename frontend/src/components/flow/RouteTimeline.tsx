@@ -1,6 +1,8 @@
+import { t } from "../../preferences";
 import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { StageBadge, formatMs } from "./StageBadge";
+import { StageExplanation } from "./StageExplanation";
 import { StageDetails } from "./StageDetails";
 import { ROUTES, STAGES } from "../../flow/stages";
 import type { StageState, TurnState } from "../../flow/turnState";
@@ -32,14 +34,18 @@ export function RouteTimeline({ turn, focus, landed }: Props) {
   return (
     <div className="flex-1 overflow-y-auto p-4 md:min-h-0">
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <p className="text-sm">
-          路线 Route：<span className="font-medium">{route ? `${route.zh} ${route.en}` : "判断中… Deciding"}</span>
+        <p className="text-sm">{t("路线 Route：")}<span className="font-medium">{route ? t(route.zh) : t("判断中… Deciding")}</span>
         </p>
         <p className="text-xs tabular-nums text-muted">
-          {done} / {turn.stages.length} 完成 · done
+          {done} / {turn.stages.length} {t("完成 · Done")}
         </p>
       </div>
-      {route && <p className="mb-4 text-xs leading-relaxed text-muted">{route.explain}</p>}
+      {route && (
+        <div className="mb-4 flex flex-col gap-2 text-sm leading-relaxed">
+          <p>{t(route.explain)}</p>
+          <p className="rounded-lg bg-surface-2 p-3"><span className="font-semibold">{t("路线示例")} · </span>{t(route.example)}</p>
+        </div>
+      )}
 
       <ol>
         {shown.map((stage, i) => (
@@ -81,11 +87,11 @@ export function RouteTimeline({ turn, focus, landed }: Props) {
                 >
                   <div className="flex flex-col gap-3 pb-3 pl-10 pr-2 text-xs leading-relaxed">
                     <div>
-                      <p>{STAGES[stage.id].explain}</p>
-                      <p className="mt-1 text-muted">真实系统 · In production: {STAGES[stage.id].realWorld}</p>
+                      <StageExplanation stage={stage.id} compact />
+                      <p className="mt-1 text-muted">{t(STAGES[stage.id].realWorld)}</p>
                     </div>
                     {/* The inspector: this stage's real input and output. */}
-                    <StageDetails stage={stage} />
+                    <section className="border-t border-border pt-3"><h3 className="mb-2 text-sm font-semibold">{t("本轮实际数据")}</h3><StageDetails stage={stage} /></section>
                   </div>
                 </motion.div>
               )}

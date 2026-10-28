@@ -1,3 +1,4 @@
+import { t } from "../preferences";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { motion } from "motion/react";
 import Markdown from "react-markdown";
@@ -80,7 +81,7 @@ export function ChatPanel({
 
   return (
     <Panel
-      title="对话"
+      title={t("对话")}
       subtitle="Chat"
       action={
         <div className="flex items-center gap-2">
@@ -90,19 +91,15 @@ export function ChatPanel({
             onClick={onNewChat}
             disabled={sending}
             whileTap={{ scale: 0.94 }}
-            title="开始新对话，旧对话仍保存在数据库里 · Start fresh; the old chat stays saved"
-          >
-            ＋ 新对话
-          </motion.button>
+            title={t("开始新对话，旧对话仍保存在数据库里 · Start fresh; the old chat stays saved")}
+          >{t("＋ 新对话")}</motion.button>
           <DemoMenu running={demo} disabled={sending} onStart={onStartDemo} onStop={onStopDemo} />
           <motion.button
             type="button"
             className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-surface-2"
             onClick={() => setMemoryOpen(true)}
             whileTap={{ scale: 0.94 }}
-          >
-            记忆 Memory
-          </motion.button>
+          >{t("记忆 Memory")}</motion.button>
         </div>
       }
     >
@@ -119,9 +116,8 @@ export function ChatPanel({
       <div ref={scroller} className="flex flex-1 flex-col gap-3 overflow-y-auto p-4 md:min-h-0">
         {messages.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
-            <p className="text-sm">发一条消息，右边会显示 AI 处理它的每一步。</p>
-            <p className="text-xs text-muted">Send a message to watch every step on the right.</p>
-            <p className="mt-2 text-xs text-muted">不知道问什么？点右上角「示例 Demo」。· Not sure what to ask? Try a demo.</p>
+            <p className="text-sm">{t("发一条消息，右边会显示 AI 处理它的每一步。")}</p>
+            <p className="mt-2 text-xs text-muted">{t("不知道问什么？点右上角「示例 Demo」。· Not sure what to ask? Try a demo.")}</p>
           </div>
         ) : (
           messages.map((m) => (
@@ -146,17 +142,15 @@ export function ChatPanel({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="输入消息 · Type a message"
-          aria-label="消息 Message"
+          placeholder={t("输入消息 · Type a message")}
+          aria-label={t("消息 Message")}
         />
         <motion.button
           type="submit"
           className="h-10 shrink-0 rounded-lg bg-accent px-4 text-sm font-medium text-white disabled:opacity-40"
           disabled={sending || !!demo || !draft.trim()}
           whileTap={{ scale: 0.92 }}
-        >
-          发送
-        </motion.button>
+        >{t("发送")}</motion.button>
       </form>
     </Panel>
   );
@@ -194,7 +188,7 @@ function Bubble({ message, onReplay }: { message: ChatMessage; onReplay?: () => 
       {message.status === "error" && message.error && (
         // D5 摇头: the turn failed.
         <motion.p className="max-w-[85%] text-xs text-err" {...SHAKE}>
-          {ERRORS[message.error]}
+          {t(ERRORS[message.error])}
         </motion.p>
       )}
       {message.status === "done" && !mine && <ReplyBadges message={message} />}
@@ -208,9 +202,7 @@ function Bubble({ message, onReplay }: { message: ChatMessage; onReplay?: () => 
             .filter(Boolean)
             .join(" · ")}
           {onReplay && (
-            <button type="button" onClick={onReplay} className="ml-2 text-accent hover:underline">
-              ↺ 回放流程 Replay
-            </button>
+            <button type="button" onClick={onReplay} className="ml-2 text-accent hover:underline">{t("↺ 回放流程 Replay")}</button>
           )}
         </p>
       )}
@@ -224,10 +216,10 @@ function Bubble({ message, onReplay }: { message: ChatMessage; onReplay?: () => 
  */
 function ReplyBadges({ message }: { message: ChatMessage }) {
   const badges: string[] = [];
-  if (message.route && message.route !== "basic") badges.push(`路线 · ${ROUTES[message.route].zh}`);
-  if (message.contextWindow === 5) badges.push("上下文 ×5 轮");
+  if (message.route && message.route !== "basic") badges.push(`${t("路线")} · ${t(ROUTES[message.route].zh)}`);
+  if (message.contextWindow === 5) badges.push(t("上下文 ×5 轮"));
   for (const [kind, n] of Object.entries(message.materials ?? {})) {
-    badges.push(`${MATERIAL_KIND[kind]?.split(" ")[0] ?? kind} ×${n}`);
+    badges.push(`${t(MATERIAL_KIND[kind] ?? kind) ?? kind} ×${n}`);
   }
   if (!badges.length) return null;
   return (
@@ -250,7 +242,7 @@ function ReplyBadges({ message }: { message: ChatMessage }) {
 // G7 加载跳点: waiting for the model's first token.
 function LoadingDots() {
   return (
-    <span className="flex h-5 items-center gap-1" aria-label="正在生成 Generating">
+    <span className="flex h-5 items-center gap-1" aria-label={t("正在生成 Generating")}>
       {[0, 1, 2].map((i) => (
         <motion.span
           key={i}

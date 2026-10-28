@@ -1,3 +1,4 @@
+import { t, pick } from "../preferences";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { MemoryFact, MemoryView } from "../api/memory";
@@ -41,25 +42,19 @@ export function MemoryDrawer({ open, onClose, memory, facts, recalled, onClear, 
           initial={{ x: "100%" }}
           animate={{ x: 0, transition: { duration: DURATION.enter, ease: EASE_OUT } }}
           exit={{ x: "100%", transition: { duration: DURATION.exit, ease: EASE_IN } }}
-          aria-label="记忆 Memory"
+          aria-label={t("记忆 Memory")}
         >
           <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border px-4">
-            <h3 className="text-sm font-semibold">
-              记忆 <span className="font-normal text-muted">Memory · epoch {memory?.epoch ?? 0}</span>
+            <h3 className="text-sm font-semibold">{t("记忆")}<span className="font-normal text-muted">Memory · epoch {memory?.epoch ?? 0}</span>
             </h3>
-            <button type="button" className="rounded-md px-2 py-1 text-xs text-muted hover:bg-surface-2" onClick={onClose}>
-              关闭 Close
-            </button>
+            <button type="button" className="rounded-md px-2 py-1 text-xs text-muted hover:bg-surface-2" onClick={onClose}>{t("关闭 Close")}</button>
           </header>
 
           <div className="flex-1 overflow-y-auto p-4 md:min-h-0">
-            <h4 className="mb-1 text-xs font-semibold">长期记忆 Long-term facts</h4>
-            <p className="mb-3 text-xs leading-relaxed text-muted">
-              模型从你的话里提取、并能对上原文引用的事实。每一轮都会带给模型。· Extracted facts, each backed by
-              an exact quote, given to the model every turn.
-            </p>
+            <h4 className="mb-1 text-xs font-semibold">{t("长期记忆 Long-term facts")}</h4>
+            <p className="mb-3 text-xs leading-relaxed text-muted">{t("模型从你的话里提取、并能对上原文引用的事实。每一轮都会带给模型。· Extracted facts, each backed by an exact quote, given to the model every turn.")}</p>
             <ol data-memory-target className="mb-6 flex min-h-6 flex-col gap-1.5">
-              {facts.length === 0 && <li className="text-xs text-muted">还没有。· None yet.</li>}
+              {facts.length === 0 && <li className="text-xs text-muted">{t("还没有。· None yet.")}</li>}
               <AnimatePresence initial={false}>
                 {[...facts].reverse().map((f) => (
                   <motion.li
@@ -71,7 +66,7 @@ export function MemoryDrawer({ open, onClose, memory, facts, recalled, onClear, 
                     <p>
                       <span className="text-muted">{f.field}：</span>
                       {f.value}
-                      {f.revision > 1 && <span className="text-muted"> · 第 {f.revision} 版</span>}
+                      {f.revision > 1 && <span className="text-muted">{pick(` · 第 ${f.revision} 版`, ` · revision ${f.revision}`)}</span>}
                     </p>
                     <p className="mt-0.5 truncate text-muted">「{f.quote}」</p>
                   </motion.li>
@@ -79,14 +74,11 @@ export function MemoryDrawer({ open, onClose, memory, facts, recalled, onClear, 
               </AnimatePresence>
             </ol>
 
-            <h4 className="mb-1 text-xs font-semibold">对话记录 Conversation pairs</h4>
-            <p className="mb-4 text-xs leading-relaxed text-muted">
-              最近 {memory?.recent_limit ?? 3} 组问答会原样放进 prompt（短期记忆）。更早的只能靠相似度检索找回：分数 ≥{" "}
-              {memory?.threshold ?? "—"} 才会被带回。· The newest pairs are replayed as is; older ones come back only
-              by similarity ({memory?.embed_model}).
+            <h4 className="mb-1 text-xs font-semibold">{t("对话记录 Conversation pairs")}</h4>
+            <p className="mb-4 text-xs leading-relaxed text-muted">{pick(`最近 ${memory?.recent_limit ?? 3} 组问答会原样放进 prompt。更早的通过相似度检索找回，阈值为 ${memory?.threshold ?? "—"}。`, `The latest ${memory?.recent_limit ?? 3} pairs are replayed as-is. Older pairs are retrieved by similarity at threshold ${memory?.threshold ?? "—"}.`)}
             </p>
             {pairs.length === 0 ? (
-              <p className="text-sm text-muted">还没有记忆。· Nothing remembered yet.</p>
+              <p className="text-sm text-muted">{t("还没有记忆。· Nothing remembered yet.")}</p>
             ) : (
               <ol className="flex flex-col gap-2">
                 {[...pairs].reverse().map((p, i) => {
@@ -104,12 +96,11 @@ export function MemoryDrawer({ open, onClose, memory, facts, recalled, onClear, 
                         <span
                           className={`rounded px-1.5 py-0.5 ${p.in_recent ? "bg-ok/15 text-ok" : "bg-surface-2 text-muted"}`}
                         >
-                          {p.in_recent ? "短期 Recent" : "可检索 Searchable"}
+                          {p.in_recent ? t("短期 Recent") : t("可检索 Searchable")}
                         </span>
-                        {!p.embedded && <span className="rounded bg-warn/15 px-1.5 py-0.5 text-warn">未建索引</span>}
+                        {!p.embedded && <span className="rounded bg-warn/15 px-1.5 py-0.5 text-warn">{t("未建索引")}</span>}
                         {score != null && (
-                          <span className="rounded bg-accent/15 px-1.5 py-0.5 text-accent">
-                            本轮召回 · {score.toFixed(2)}
+                          <span className="rounded bg-accent/15 px-1.5 py-0.5 text-accent">{t("本轮召回 ·")}{score.toFixed(2)}
                           </span>
                         )}
                       </div>
@@ -142,12 +133,9 @@ export function MemoryDrawer({ open, onClose, memory, facts, recalled, onClear, 
               }`}
               whileTap={{ scale: 0.97 }}
             >
-              {confirming ? "再点一次确认清空 · Click again to confirm" : "清空记忆 · Clear memory"}
+              {confirming ? t("再点一次确认清空 · Click again to confirm") : t("清空记忆 · Clear memory")}
             </motion.button>
-            <p className="mt-2 text-[11px] leading-relaxed text-muted">
-              清空会开始新的 history epoch：旧记录仍在数据库文件里，但之后不会再被读取。· Clearing starts a new
-              epoch; old rows stay in the file but are never read again.
-            </p>
+            <p className="mt-2 text-[11px] leading-relaxed text-muted">{t("清空会开始新的 history epoch：旧记录仍在数据库文件里，但之后不会再被读取。· Clearing starts a new epoch; old rows stay in the file but are never read again.")}</p>
           </footer>
         </motion.aside>
       )}

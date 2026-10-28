@@ -1,22 +1,27 @@
-import { AnimatePresence, motion } from "motion/react";
+import { t } from "../../preferences";
+import { motion } from "motion/react";
 import type { PlaybackSettings, Speed } from "../../hooks/usePlayback";
-import { DURATION, EASE_IN, EASE_OUT } from "../../motion";
+import { EASE_OUT } from "../../motion";
 
 type Props = {
   settings: PlaybackSettings;
   onChange: (s: PlaybackSettings) => void;
-  waiting: boolean;
+  hasSteps: boolean;
+  canPrevious: boolean;
+  canNext: boolean;
+  nextHint: string;
+  onPrevious: () => void;
   onNext: () => void;
 };
 
 const SPEEDS: Speed[] = [0.5, 1, 2];
 
-export function PlaybackControls({ settings, onChange, waiting, onNext }: Props) {
+export function PlaybackControls({ settings, onChange, hasSteps, canPrevious, canNext, nextHint, onPrevious, onNext }: Props) {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border px-4 py-2.5 text-xs">
       <div className="flex items-center gap-2">
-        <span className="text-muted">速度 Speed</span>
-        <div className="relative flex rounded-md border border-border p-0.5" role="radiogroup" aria-label="速度 Speed">
+        <span className="text-muted">{t("速度 Speed")}</span>
+        <div className="relative flex rounded-md border border-border p-0.5" role="radiogroup" aria-label={t("速度 Speed")}>
           {SPEEDS.map((s) => (
             <button
               key={s}
@@ -41,12 +46,12 @@ export function PlaybackControls({ settings, onChange, waiting, onNext }: Props)
       </div>
 
       <div className="flex items-center gap-2">
-        <span className="text-muted" aria-hidden="true">单步 Step</span>
+        <span className="text-muted" aria-hidden="true">{t("单步 Step")}</span>
         {/* D7 开关滑动 */}
         <button
           type="button"
           role="switch"
-          aria-label="单步 Step"
+          aria-label={t("单步 Step")}
           aria-checked={settings.stepMode}
           onClick={() => onChange({ ...settings, stepMode: !settings.stepMode })}
           className={`relative h-5 w-9 rounded-full transition-colors ${settings.stepMode ? "bg-accent" : "bg-border"}`}
@@ -59,21 +64,30 @@ export function PlaybackControls({ settings, onChange, waiting, onNext }: Props)
         </button>
       </div>
 
-      <AnimatePresence>
-        {waiting && (
+      {hasSteps && (
+        <nav className="grid w-full grid-cols-2 gap-2" aria-label={t("步骤浏览")}>
+          <motion.button
+            type="button"
+            onClick={onPrevious}
+            disabled={!canPrevious}
+            className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border border-border bg-surface px-3 py-2 text-base font-semibold disabled:cursor-not-allowed disabled:opacity-40 hover:enabled:bg-surface-2"
+            whileTap={canPrevious ? { scale: 0.96 } : undefined}
+          >
+            <span>← {t("上一步")}</span>
+            <span className="text-xs font-normal text-muted">{canPrevious ? t("回看前一个步骤") : t("已经是第一步")}</span>
+          </motion.button>
           <motion.button
             type="button"
             onClick={onNext}
-            className="ml-auto rounded-md bg-accent px-3 py-1 font-medium text-white"
-            initial={{ opacity: 0, scale: 0.6 }}
-            animate={{ opacity: 1, scale: 1, transition: { duration: DURATION.enter, ease: [0.34, 1.56, 0.64, 1] } }}
-            exit={{ opacity: 0, scale: 0.85, transition: { duration: DURATION.exit, ease: EASE_IN } }}
-            whileTap={{ scale: 0.92 }}
+            disabled={!canNext}
+            className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl bg-accent px-3 py-2 text-base font-semibold text-white shadow-md disabled:cursor-not-allowed disabled:opacity-40"
+            whileTap={canNext ? { scale: 0.96 } : undefined}
           >
-            下一步 Next →
+            <span>{t("下一步")} →</span>
+            <span className="text-xs font-normal">{nextHint}</span>
           </motion.button>
-        )}
-      </AnimatePresence>
+        </nav>
+      )}
     </div>
   );
 }

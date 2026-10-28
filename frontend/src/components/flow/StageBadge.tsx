@@ -1,3 +1,4 @@
+import { t } from "../../preferences";
 import { NodeIcon } from "./NodeIcon";
 import { STAGES } from "../../flow/stages";
 import type { StageState } from "../../flow/turnState";
@@ -9,7 +10,7 @@ export function StageBadge({ stage, large = false }: { turnId?: string; stage: S
     <div className="flex min-w-0 items-center gap-3">
       <NodeIcon status={stage.status} />
       <span className={`min-w-0 truncate ${large ? "text-base font-semibold" : "text-sm"} ${stage.status === "pending" ? "text-muted" : ""}`}>
-        {copy.zh} <span className="font-normal text-muted">{copy.en}</span>
+        {t(copy.zh)}
       </span>
     </div>
   );

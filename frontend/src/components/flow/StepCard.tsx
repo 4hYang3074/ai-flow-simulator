@@ -1,5 +1,7 @@
+import { t } from "../../preferences";
 import { AnimatePresence, motion } from "motion/react";
 import { StageBadge, formatMs } from "./StageBadge";
+import { StageExplanation } from "./StageExplanation";
 import { StageDetails } from "./StageDetails";
 import { ERRORS, STAGES } from "../../flow/stages";
 import type { StageState, TurnState } from "../../flow/turnState";
@@ -53,11 +55,9 @@ function CardBody({ turn, focus, liveTokens }: Props) {
   return (
     <article className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3 text-xs text-muted">
-        <span>
-          第 {index + 1} 步 / 共 {turn.stages.length} 步 · Step {index + 1} of {turn.stages.length}
-        </span>
+        <span>{t("步骤")} {index + 1} / {turn.stages.length}</span>
         <span className={`${STATUS_TONE[focus.status]} tabular-nums`}>
-          {STATUS_LABEL[focus.status]}
+          {t(STATUS_LABEL[focus.status])}
           {focus.ms != null && ` · ${formatMs(focus.ms)}`}
         </span>
       </div>
@@ -67,24 +67,26 @@ function CardBody({ turn, focus, liveTokens }: Props) {
         <StageBadge stage={focus} large />
       </div>
 
-      <p className="text-sm leading-relaxed">{copy.explain}</p>
+      <StageExplanation stage={focus.id} />
 
       {focus.id === "generate" && focus.status === "active" && (
-        <p className="text-sm text-accent tabular-nums">
-          已收到 {liveTokens} 个 token · {liveTokens} tokens received
+        <p className="text-sm text-accent tabular-nums">{liveTokens} {t("tokens received")}
         </p>
       )}
 
-      {focus.status === "active" ? <Skeleton /> : <StageDetails stage={focus} />}
+      <section className="flex flex-col gap-2 border-t border-border pt-4">
+        <h3 className="text-sm font-semibold">{t("本轮实际数据")}</h3>
+        {focus.status === "active" ? <><p className="text-sm text-muted">{t("数据会在这一步完成后显示")}</p><Skeleton /></> : <StageDetails stage={focus} />}
+      </section>
 
       {focus.status === "failed" && turn.errorCode && (
         // D5 摇头
         <motion.p className="rounded-xl border border-err/40 bg-err/10 p-3 text-sm text-err" {...SHAKE}>
-          {ERRORS[turn.errorCode]}
+          {t(ERRORS[turn.errorCode])}
         </motion.p>
       )}
 
-      <p className="text-xs leading-relaxed text-muted">真实系统 · In production: {copy.realWorld}</p>
+      <p className="text-sm leading-relaxed text-muted">{t(copy.realWorld)}</p>
 
       {turn.status === "done" && index === turn.stages.length - 1 && focus.status === "done" && (
         <motion.p
@@ -92,9 +94,7 @@ function CardBody({ turn, focus, liveTokens }: Props) {
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: DURATION.enter, ease: [0.34, 1.56, 0.64, 1] }}
-        >
-          本轮完成 · Turn complete
-          {turn.totalMs != null &&
+        >{t("本轮完成 · Turn complete")}{turn.totalMs != null &&
             (turn.totalMs >= 1000 ? (
               <>
                 {" · "}

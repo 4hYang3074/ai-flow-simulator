@@ -1,3 +1,4 @@
+import { t, pick } from "../preferences";
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { DEMOS, type Demo } from "../flow/demos";
@@ -32,9 +33,8 @@ export function DemoMenu({ running, disabled, onStart, onStop }: Props) {
         onClick={onStop}
         className="rounded-md bg-accent/15 px-2.5 py-1 text-xs text-accent"
         whileTap={{ scale: 0.94 }}
-        title="停止示例 Stop demo"
-      >
-        示例 {running.index + 1}/{running.demo.messages.length} · 停止
+        title={t("停止示例 Stop demo")}
+      >{pick("示例", "Demo")} {running.index + 1}/{running.demo.messages.length} · {pick("停止", "Stop")}
       </motion.button>
     );
   }
@@ -48,9 +48,7 @@ export function DemoMenu({ running, disabled, onStart, onStop }: Props) {
         className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-surface-2 disabled:opacity-40"
         whileTap={{ scale: 0.94 }}
         aria-expanded={open}
-      >
-        示例 Demo
-      </motion.button>
+      >{t("示例 Demo")}</motion.button>
       <AnimatePresence>
         {open && (
           // A4 弹出 from the button's corner.
@@ -72,10 +70,10 @@ export function DemoMenu({ running, disabled, onStart, onStop }: Props) {
                   }}
                 >
                   <p className="text-sm">
-                    {demo.zh} <span className="text-muted">{demo.en}</span>
+                    {t(demo.zh)}
                   </p>
-                  <p className="mt-0.5 text-xs leading-relaxed text-muted">{demo.explain}</p>
-                  <p className="mt-1 text-[11px] text-muted">{demo.messages.length} 条消息</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted">{t(demo.explain)}</p>
+                  <p className="mt-1 text-[11px] text-muted">{demo.messages.length} {pick("条消息", "messages")}</p>
                 </button>
               </li>
             ))}
