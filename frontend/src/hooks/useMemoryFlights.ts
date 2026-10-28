@@ -1,98 +1,91 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useReducedMotion } from "motion/react";
 import type { MemoryView } from "../api/memory";
 import { elementBox, textBox, type Flight } from "../components/FlyLayer";
-import { savedFacts } from "../flow/facts";
+import { initialNotebook, notebookReady, notebookReducer } from "../flow/notebook";
 import type { FlowEvent } from "../flow/turnState";
-
-// A fact that never gets its flight (a new turn replaced the panel, say)
-// still appears after this long.
-const RELEASE_AFTER_MS = 10_000;
-const STAGGER_S = 0.18;
+import { MEMORY_EXTRACT_STAGGER } from "../motion";
 
 /** The visible element matching `selector` that comes last in the page. */
 function lastVisible(selector: string): Element | null {
   const all = [...document.querySelectorAll(selector)].filter((el) => {
     const r = el.getBoundingClientRect();
-    return r.width > 0 && r.height > 0;
+    return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < window.innerHeight && r.right > 0 && r.left < window.innerWidth;
   });
   return all.at(-1) ?? null;
 }
 
 /**
- * Which long-term facts the notebook may show, and the flights that bring new
- * ones in. A fact is shown only once it has been "seen": everything present at
- * page load is seen at once, a new fact becomes seen when its flight lands.
- * Deciding by "seen" (rather than holding facts back after they appear) means
- * a new fact is hidden from its very first render, with no flash.
+ * Queue facts at displayed memorize completion. Each extraction starts 60 ms
+ * after the previous one, then flies independently; reveal landed tags in order.
  */
-export function useMemoryFlights(memory: MemoryView | null, loaded: boolean) {
+export function useMemoryFlights(memory: MemoryView | null, loaded: boolean, turnId?: string) {
   const reduced = useReducedMotion();
-  const [seen, setSeen] = useState<Set<string> | null>(null);
+  const [notebook, dispatch] = useReducer(notebookReducer, initialNotebook);
   const [flights, setFlights] = useState<Flight[]>([]);
+  const launched = useRef(new Set<string>());
+  const ready = notebookReady(notebook);
+  const firstId = notebook.queue[0]?.id;
 
-  const release = useCallback((ids: string[]) => {
-    if (!ids.length) return;
-    setSeen((s) => new Set([...(s ?? []), ...ids]));
-  }, []);
-
-  // Facts present at page load are already in the notebook: no flights.
   useEffect(() => {
-    if (loaded && memory && seen === null) setSeen(new Set(memory.facts.map((f) => f.id)));
-  }, [loaded, memory, seen]);
+    if (loaded && memory) dispatch({ type: "sync", memory, turnId: turnId ?? null });
+  }, [loaded, memory, turnId]);
 
-  const unseen = seen ? (memory?.facts ?? []).filter((f) => !seen.has(f.id)).map((f) => f.id) : [];
-  const unseenKey = unseen.join(",");
-
-  // With reduced motion there is no flight: show new facts straight away.
-  // Otherwise a safety net makes sure nothing stays hidden for long.
   useEffect(() => {
-    if (!unseenKey) return;
-    const ids = unseenKey.split(",");
-    if (reduced) return release(ids);
-    const t = window.setTimeout(() => release(ids), RELEASE_AFTER_MS);
-    return () => window.clearTimeout(t);
-  }, [unseenKey, reduced, release]);
+    launched.current.clear();
+    setFlights([]);
+  }, [notebook.turnId, notebook.epoch]);
 
-  /** Called when the workflow panel shows an event; memorize starts flights. */
-  const onFlowEvent = useCallback(
-    (event: FlowEvent) => {
-      if (event.type !== "stage_end" || event.stage !== "memorize") return;
-      const facts = savedFacts(event.summary);
-      if (!facts.length || reduced) return;
+  useEffect(() => {
+    if (!notebook.queue.length) { setFlights([]); return; }
+    if (reduced) {
+      setFlights([]);
+      dispatch({ type: "reduce-motion" });
+      return;
+    }
+    const pending = notebook.queue.filter((fact) => !launched.current.has(fact.id));
+    if (!pending.length) return;
+    const bubble = lastVisible('[data-chat-role="user"]');
+    const target = lastVisible("[data-memory-notebook]");
+    // An offscreen source/target cannot have a meaningful flight. Reveal only
+    // after this displayed memorize event; there is no elapsed-time release.
+    if (!bubble || !target) {
+      dispatch({ type: "reduce-motion" });
+      return;
+    }
+    const to = elementBox(target);
+    const group = pending.map((fact, index) => {
+      launched.current.add(fact.id);
+      const quoted = textBox(bubble, fact.quote);
+      return {
+        id: fact.id, text: `${fact.field}: ${fact.value}`,
+        fact: { field: fact.field, value: fact.value },
+        from: quoted ?? elementBox(bubble), exact: quoted != null, to, delay: index * MEMORY_EXTRACT_STAGGER,
+      };
+    });
+    setFlights((current) => [...current, ...group]);
+  }, [notebook.queue, notebook.turnId, notebook.epoch, reduced]);
 
-      const bubble = lastVisible('[data-chat-role="user"]');
-      const target = lastVisible("[data-memory-target]");
-      if (!bubble || !target) return release(facts.map((f) => f.id));
-      const to = elementBox(target);
+  // This short sequencing timer is gated by actual landings. It cannot reveal
+  // facts merely because the backend finished or the user waited at an early step.
+  useEffect(() => {
+    if (!ready || reduced) return;
+    const timer = window.setTimeout(() => dispatch({ type: "reveal" }), 100);
+    return () => window.clearTimeout(timer);
+  }, [ready, firstId, reduced]);
 
-      setFlights((current) => [
-        ...current.filter((c) => !facts.some((f) => f.id === c.id)),
-        ...facts.map((f, i) => {
-          const quoted = textBox(bubble, f.quote);
-          return {
-            id: f.id,
-            text: `${f.field}：${f.value}`,
-            from: quoted ?? elementBox(bubble),
-            exact: quoted != null,
-            to: { x: to.x, y: to.y, w: 0, h: 0 },
-            delay: i * STAGGER_S,
-          };
-        }),
-      ]);
-    },
-    [reduced, release],
-  );
+  const onFlowEvent = useCallback((event: FlowEvent) => {
+    dispatch({ type: "shown", event, animate: !reduced });
+  }, [reduced]);
 
   const onArrive = useCallback(
-    (id: string) => {
-      setFlights((current) => current.filter((f) => f.id !== id));
-      release([id]);
+    (ids: string[]) => {
+      const landed = new Set(ids);
+      setFlights((current) => current.filter((flight) => !landed.has(flight.id)));
+      ids.forEach((id) => dispatch({ type: "arrive", id }));
     },
-    [release],
+    [],
   );
 
-  const isShown = useCallback((id: string) => seen?.has(id) ?? false, [seen]);
-
-  return { isShown, flights, onFlowEvent, onArrive };
+  return { facts: notebook.facts, flights, busy: notebook.queue.length > 0, onFlowEvent, onArrive };
 }

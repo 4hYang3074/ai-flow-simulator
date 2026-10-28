@@ -74,7 +74,7 @@ export function PlaybackControls({ settings, onChange, hasSteps, canPrevious, ca
             whileTap={canPrevious ? { scale: 0.96 } : undefined}
           >
             <span>← {t("上一步")}</span>
-            <span className="text-xs font-normal text-muted">{canPrevious ? t("回看前一个步骤") : t("已经是第一步")}</span>
+            <span className="text-xs font-normal text-muted">{canPrevious ? t("查看前一个步骤") : t("已经是第一步")}</span>
           </motion.button>
           <motion.button
             type="button"

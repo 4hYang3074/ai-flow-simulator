@@ -64,19 +64,21 @@ export function focusStage(turn: TurnState): StageState | undefined {
 
 export type ViewedStage = { turnId: string; stageId: StageId };
 
-/** Browse only stages already shown, without replaying their events or effects. */
+/** Browse displayed results or preview pending explanations without applying events. */
 export function stageNavigation(turn: TurnState | null, viewed: ViewedStage | null) {
   const live = turn ? focusStage(turn) : undefined;
   const selected = viewed?.turnId === turn?.turnId
-    ? turn?.stages.find((stage) => stage.id === viewed?.stageId && stage.status !== "pending")
+    ? turn?.stages.find((stage) => stage.id === viewed?.stageId)
     : undefined;
   const focus = selected ?? live;
-  const visited = turn?.stages.filter((stage) => stage.status !== "pending") ?? [];
-  const index = visited.findIndex((stage) => stage.id === focus?.id);
+  const isPreview = focus?.status === "pending";
+  const browsable = (isPreview ? turn?.stages : turn?.stages.filter((stage) => stage.status !== "pending")) ?? [];
+  const index = browsable.findIndex((stage) => stage.id === focus?.id);
   return {
     focus,
-    previous: index > 0 ? visited[index - 1] : undefined,
-    next: index >= 0 ? visited[index + 1] : undefined,
+    previous: index > 0 ? browsable[index - 1] : undefined,
+    next: index >= 0 ? browsable[index + 1] : undefined,
+    isPreview,
     isReviewing: !!focus && focus.id !== live?.id,
   };
 }

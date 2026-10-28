@@ -10,7 +10,7 @@ import { DURATION, EASE_OUT, SHAKE } from "../motion";
 import { ERRORS, ROUTES } from "../flow/stages";
 import { MATERIAL_KIND } from "../flow/facts";
 import type { ChatMessage } from "../hooks/useChat";
-import type { MemoryView } from "../api/memory";
+import type { MemoryFact, MemoryView } from "../api/memory";
 import type { Demo } from "../flow/demos";
 
 type Props = {
@@ -18,8 +18,8 @@ type Props = {
   sending: boolean;
   onSend: (text: string) => void;
   memory: MemoryView | null;
-  /** False for facts still on their way to the notebook. */
-  isFactShown: (id: string) => boolean;
+  /** Presentation snapshot: new facts enter only after their flights land. */
+  notebookFacts: MemoryFact[];
   recalled: Map<string, number>;
   onClearMemory: () => Promise<boolean>;
   demo: { demo: Demo; index: number } | null;
@@ -35,7 +35,7 @@ export function ChatPanel({
   sending,
   onSend,
   memory,
-  isFactShown,
+  notebookFacts: facts,
   recalled,
   onClearMemory,
   demo,
@@ -45,7 +45,6 @@ export function ChatPanel({
   onReplay,
   onNewChat,
 }: Props) {
-  const facts = (memory?.facts ?? []).filter((f) => isFactShown(f.id));
   const [draft, setDraft] = useState("");
   const [memoryOpen, setMemoryOpen] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);

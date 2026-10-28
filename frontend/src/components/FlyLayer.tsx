@@ -1,12 +1,18 @@
-import { useState } from "react";
-import { motion } from "motion/react";
+import { memoryField, memoryValue } from "../flow/memoryDisplay";
+import { pick } from "../preferences";
+import { useEffect } from "react";
+import { AnimatePresence, animate, motion, useMotionValue, useTransform } from "motion/react";
 import { EASE_OUT } from "../motion";
 
 type Box = { x: number; y: number; w: number; h: number };
 
+const EXTRACT_DURATION = 0.14;
+const FLIGHT_DURATION = 1;
+
 export type Flight = {
   id: string;
   text: string;
+  fact?: { field: string; value: string };
   /** Where the fact was said: the quoted words in the chat bubble. */
   from: Box;
   /** Whether `from` is the exact quote (highlighted) or just the bubble. */
@@ -19,57 +25,65 @@ export type Flight = {
 /**
  * Facts flying from the chat into the memory notebook:
  * 1. the quoted words light up in the bubble;
- * 2. a copy of the fact surfaces right there, coming into focus (A5 模糊对焦);
- * 3. it travels along an arc to the notebook (C4 慢快慢), shrinking a little;
- * 4. on arrival it is removed and the notebook entry pops in 60 ms later.
+ * 2. tags surface beside the message with 60 ms staggered starts;
+ * 3. each tag flies for one second as soon as its own extraction finishes;
+ * 4. landing acknowledgements let the notebook reveal tags in order.
  */
-export function FlyLayer({ flights, onArrive }: { flights: Flight[]; onArrive: (id: string) => void }) {
+export function FlyLayer({ flights, onArrive }: { flights: Flight[]; onArrive: (ids: string[]) => void }) {
   return (
     <div className="pointer-events-none fixed inset-0 z-50" aria-hidden="true">
-      {flights.map((f) => (
-        <Flyer key={f.id} flight={f} onArrive={onArrive} />
-      ))}
+      <AnimatePresence>
+        {flights.map((flight) => <Flyer key={flight.id} flight={flight} onArrive={onArrive} />)}
+      </AnimatePresence>
     </div>
   );
 }
 
-function Flyer({ flight, onArrive }: { flight: Flight; onArrive: (id: string) => void }) {
-  const [phase, setPhase] = useState<"emerge" | "fly">("emerge");
+function Flyer({ flight, onArrive }: { flight: Flight; onArrive: (ids: string[]) => void }) {
   const { from, to, delay } = flight;
-  const sx = from.x;
-  const sy = from.y - 22;
+  const sx = Math.max(8, Math.min(from.x, window.innerWidth - to.w - 8));
+  const sy = from.y - 12;
   const tx = to.x;
   const ty = to.y;
-  const midX = (sx + tx) / 2;
-  const midY = Math.min(sy, ty) - 80;
+  const lift = Math.min(24, Math.hypot(tx - sx, ty - sy) * 0.06);
+  const progress = useMotionValue(0);
+  const x = useTransform(progress, (p) => sx + (tx - sx) * p);
+  const y = useTransform(progress, (p) => sy + (ty - sy) * p - 4 * lift * p * (1 - p));
+
+  // Animate one progress value along a continuous curve. Separate x/y waypoint
+  // segments can brake at the midpoint; this keeps one fast-to-slow trajectory
+  // and updates transforms without triggering React renders on every frame.
+  useEffect(() => {
+    const controls = animate(progress, 1, {
+      delay: delay + EXTRACT_DURATION,
+      duration: FLIGHT_DURATION,
+      ease: EASE_OUT,
+      onComplete: () => onArrive([flight.id]),
+    });
+    return () => controls.stop();
+  }, [progress, flight, delay, onArrive]);
 
   return (
     <>
       {flight.exact && (
         <motion.span
+          key={flight.id}
           className="fixed rounded-md bg-accent/25 ring-2 ring-accent/60"
-          style={{ left: from.x - 3, top: from.y - 2, width: from.w + 6, height: from.h + 4 }}
+          style={{ left: flight.from.x - 3, top: flight.from.y - 2, width: flight.from.w + 6, height: flight.from.h + 4 }}
           initial={{ opacity: 0 }}
           animate={{ opacity: [0, 1, 1, 0] }}
-          transition={{ duration: 1.6, times: [0, 0.2, 0.75, 1], delay }}
+          transition={{ duration: 0.45, delay, times: [0, 0.2, 0.75, 1] }}
         />
       )}
       <motion.div
-        className="fixed left-0 top-0 whitespace-nowrap rounded-full border border-accent/50 bg-surface px-2.5 py-0.5 text-xs shadow-lg"
-        initial={{ x: sx, y: sy + 14, opacity: 0, filter: "blur(8px)", scale: 0.92 }}
-        animate={
-          phase === "emerge"
-            ? { x: sx, y: sy, opacity: 1, filter: "blur(0px)", scale: 1 }
-            : { x: [sx, midX, tx], y: [sy, midY, ty], scale: [1, 0.97, 0.85], opacity: [1, 1, 0.85] }
-        }
-        transition={
-          phase === "emerge"
-            ? { duration: 0.6, ease: EASE_OUT, delay: delay + 0.15 }
-            : { duration: 0.85, ease: [0.45, 0, 0.55, 1], delay: 0.25 }
-        }
-        onAnimationComplete={() => (phase === "emerge" ? setPhase("fly") : onArrive(flight.id))}
+        className="fixed left-0 top-0 max-w-full truncate rounded-full border border-accent/50 bg-surface px-2.5 py-0.5 text-xs shadow-lg"
+        style={{ maxWidth: to.w, x, y, willChange: "transform" }}
+        initial={{ opacity: 0, filter: "blur(2px)", scale: 0.985, translateY: 4 }}
+        animate={{ opacity: 1, filter: "blur(0px)", scale: 1, translateY: 0 }}
+        transition={{ duration: EXTRACT_DURATION, delay, ease: EASE_OUT }}
+        exit={{ opacity: 0, transition: { duration: 0.1, ease: EASE_OUT } }}
       >
-        {flight.text}
+        {flight.fact ? `${memoryField(flight.fact.field)}${pick("：", ": ")}${memoryValue(flight.fact.field, flight.fact.value)}` : flight.text}
       </motion.div>
     </>
   );

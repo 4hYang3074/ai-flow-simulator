@@ -12,6 +12,8 @@ const backendPort = Number(process.env.BACKEND_PORT ?? 8787);
 const frontendHost = process.env.FRONTEND_HOST ?? "localhost";
 
 export default defineConfig({
+  // Keep one report source: serve docs in development and include it in builds.
+  publicDir: "../docs",
   plugins: [react(), tailwindcss()],
   server: {
     host: frontendHost,

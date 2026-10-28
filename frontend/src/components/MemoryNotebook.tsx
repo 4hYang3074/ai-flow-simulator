@@ -1,3 +1,4 @@
+import { memoryField, memoryValue } from "../flow/memoryDisplay";
 import { t, pick } from "../preferences";
 import { AnimatePresence, motion } from "motion/react";
 import type { MemoryFact } from "../api/memory";
@@ -9,6 +10,12 @@ export const POP_IN = {
   initial: { opacity: 0, scale: 0.6, y: 6 },
   animate: { opacity: 1, scale: 1, y: 0 },
   transition: { duration: 0.45, ease: [0.34, 1.56, 0.64, 1] as const, delay: 0.06 },
+};
+
+const NOTEBOOK_POP_IN = {
+  initial: { opacity: 0, scale: 0.96, y: 2 },
+  animate: { opacity: 1, scale: 1, y: 0 },
+  transition: { duration: 0.18, ease: [0.215, 0.61, 0.355, 1] as const, layout: { duration: 0.18 } },
 };
 
 type Props = { facts: MemoryFact[]; onOpen: () => void };
@@ -26,7 +33,7 @@ export function MemoryNotebook({ facts, onOpen }: Props) {
   return (
     <div className="flex items-start gap-2 border-b border-border px-4 py-2.5">
       <button type="button" onClick={onOpen} className="mt-0.5 shrink-0 text-xs text-muted hover:text-text">{t("📒 记忆本")}</button>
-      <div data-memory-target className="flex min-h-6 min-w-0 flex-1 flex-wrap gap-1.5">
+      <div data-memory-target data-memory-notebook className="flex min-h-6 min-w-0 flex-1 flex-wrap gap-1.5">
         {facts.length === 0 && (
           <span className="py-0.5 text-xs text-muted">{t("你说过的重要事情会记在这里 · Facts you share land here")}</span>
         )}
@@ -39,11 +46,11 @@ export function MemoryNotebook({ facts, onOpen }: Props) {
               onClick={onOpen}
               title={pick(`原文引用：「${f.quote}」`, `Source quote: “${f.quote}”`)}
               className="max-w-full truncate rounded-full border border-accent/40 bg-accent/10 px-2.5 py-0.5 text-xs"
-              {...POP_IN}
+              {...NOTEBOOK_POP_IN}
               exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.2 } }}
             >
-              <span className="text-muted">{f.field}：</span>
-              {f.value}
+              <span className="text-muted">{memoryField(f.field)}{pick("：", ": ")}</span>
+              {memoryValue(f.field, f.value)}
             </motion.button>
           ))}
           {more > 0 && (

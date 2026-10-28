@@ -3,6 +3,9 @@
 /** C2 减速停下 Ease-out (power3.out): fast start, soft stop. Used for entrances. */
 export const EASE_OUT = [0.215, 0.61, 0.355, 1] as const;
 
+/** Successive fact extraction animations start 60 ms apart. */
+export const MEMORY_EXTRACT_STAGGER = 0.06;
+
 /** C3 加速离开 Ease-in (power3.in): used for exits, which run about half as long. */
 export const EASE_IN = [0.55, 0.055, 0.675, 0.19] as const;
 

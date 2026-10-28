@@ -1,12 +1,9 @@
 import { t } from "../../preferences";
-import { useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { motion } from "motion/react";
 import { StageBadge, formatMs } from "./StageBadge";
-import { StageExplanation } from "./StageExplanation";
-import { StageDetails } from "./StageDetails";
-import { ROUTES, STAGES } from "../../flow/stages";
+import { ROUTES } from "../../flow/stages";
 import type { StageState, TurnState } from "../../flow/turnState";
-import { DURATION, EASE_OUT } from "../../motion";
+import { EASE_OUT } from "../../motion";
 import type { StageId } from "../../flow/protocol";
 
 type Props = {
@@ -14,16 +11,17 @@ type Props = {
   focus: StageState | undefined;
   /** Stages whose label has flown in from the current-step card. */
   landed: Set<StageId>;
+  onSelect: (stage: StageId) => void;
+  currentStepId: string;
 };
 
 /**
  * The full route, always on screen: every stage of this turn, top to bottom.
  * A stage is ticked when its label lands here from the current-step card; the
- * one in focus pulses, the rest wait in grey. Click a stage to open its
- * explanation and inspector (its real input and output).
+ * one in focus is highlighted. Click a stage to show its explanation and
+ * available results in the adjacent current-step panel.
  */
-export function RouteTimeline({ turn, focus, landed }: Props) {
-  const [open, setOpen] = useState<StageId | null>(null);
+export function RouteTimeline({ turn, focus, landed, onSelect, currentStepId }: Props) {
   const route = turn.route ? ROUTES[turn.route] : null;
   // A finished stage still shows as running until its label arrives.
   const shown = turn.stages.map((s) =>
@@ -47,6 +45,7 @@ export function RouteTimeline({ turn, focus, landed }: Props) {
         </div>
       )}
 
+      <p className="mb-3 text-xs leading-relaxed text-muted">{t("点击步骤，在「当前步骤」查看；尚未展示的步骤可预览说明。")}</p>
       <ol>
         {shown.map((stage, i) => (
           // A plain list: rows do not move. A row added when the route is
@@ -62,11 +61,12 @@ export function RouteTimeline({ turn, focus, landed }: Props) {
             {i < turn.stages.length - 1 && <Connector filled={stage.status === "done"} />}
             <button
               type="button"
-              className={`flex w-full items-center gap-3 rounded-lg py-2 pl-0 pr-2 text-left transition-colors hover:bg-surface-2 ${
-                stage.id === focus?.id ? "bg-surface-2" : ""
+              className={`flex w-full items-center gap-3 rounded-lg border py-2 pl-0 pr-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                stage.id === focus?.id ? "border-accent/50 bg-accent/10" : "border-transparent hover:bg-surface-2"
               }`}
-              onClick={() => setOpen(open === stage.id ? null : stage.id)}
-              aria-expanded={open === stage.id}
+              onClick={() => onSelect(stage.id)}
+              aria-current={stage.id === focus?.id ? "step" : undefined}
+              aria-controls={currentStepId}
             >
               <span className="pl-2">
                 <StageBadge turnId={turn.turnId} stage={stage} />
@@ -75,27 +75,6 @@ export function RouteTimeline({ turn, focus, landed }: Props) {
                 <span className="ml-auto shrink-0 text-xs tabular-nums text-muted">{formatMs(stage.ms)}</span>
               )}
             </button>
-            <AnimatePresence initial={false}>
-              {open === stage.id && (
-                // The explanation fades in under its row; the rows below move
-                // down at once rather than sliding, so nothing overlaps.
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0, transition: { duration: 0.1 } }}
-                  transition={{ duration: DURATION.enter, ease: EASE_OUT }}
-                >
-                  <div className="flex flex-col gap-3 pb-3 pl-10 pr-2 text-xs leading-relaxed">
-                    <div>
-                      <StageExplanation stage={stage.id} compact />
-                      <p className="mt-1 text-muted">{t(STAGES[stage.id].realWorld)}</p>
-                    </div>
-                    {/* The inspector: this stage's real input and output. */}
-                    <section className="border-t border-border pt-3"><h3 className="mb-2 text-sm font-semibold">{t("本轮实际数据")}</h3><StageDetails stage={stage} /></section>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </motion.li>
         ))}
       </ol>

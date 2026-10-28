@@ -1,3 +1,4 @@
+import { memoryField, memoryValue } from "../flow/memoryDisplay";
 import { t, pick } from "../preferences";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -64,8 +65,8 @@ export function MemoryDrawer({ open, onClose, memory, facts, recalled, onClear, 
                     {...POP_IN}
                   >
                     <p>
-                      <span className="text-muted">{f.field}：</span>
-                      {f.value}
+                      <span className="text-muted">{memoryField(f.field)}{pick("：", ": ")}</span>
+                      {memoryValue(f.field, f.value)}
                       {f.revision > 1 && <span className="text-muted">{pick(` · 第 ${f.revision} 版`, ` · revision ${f.revision}`)}</span>}
                     </p>
                     <p className="mt-0.5 truncate text-muted">「{f.quote}」</p>

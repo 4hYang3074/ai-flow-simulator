@@ -8,7 +8,7 @@ import type { StageState, TurnState } from "../../flow/turnState";
 import { DURATION, EASE_IN, EASE_OUT, SHAKE } from "../../motion";
 import { CountUp } from "../CountUp";
 
-type Props = { turn: TurnState; focus: StageState; liveTokens: number };
+type Props = { id?: string; turn: TurnState; focus: StageState; liveTokens: number };
 
 /**
  * The default view: one card for the stage in focus. When the focus moves on,
@@ -16,9 +16,9 @@ type Props = { turn: TurnState; focus: StageState; liveTokens: number };
  * with an ease-out curve (A2 + C2: fast start, soft stop). Only one card is on
  * screen at a time, so text never overlaps.
  */
-export function StepCard({ turn, focus, liveTokens }: Props) {
+export function StepCard({ id, turn, focus, liveTokens }: Props) {
   return (
-    <div className="relative flex-1 overflow-hidden md:min-h-0">
+    <div id={id} className="relative flex-1 overflow-hidden md:min-h-0">
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
           key={`${turn.turnId}-${focus.id}`}
@@ -35,7 +35,7 @@ export function StepCard({ turn, focus, liveTokens }: Props) {
 }
 
 const STATUS_LABEL = {
-  pending: "等待中 · Waiting",
+  pending: "说明预览",
   active: "进行中 · Running",
   done: "完成 · Done",
   failed: "失败 · Failed",
@@ -76,7 +76,9 @@ function CardBody({ turn, focus, liveTokens }: Props) {
 
       <section className="flex flex-col gap-2 border-t border-border pt-4">
         <h3 className="text-sm font-semibold">{t("本轮实际数据")}</h3>
-        {focus.status === "active" ? <><p className="text-sm text-muted">{t("数据会在这一步完成后显示")}</p><Skeleton /></> : <StageDetails stage={focus} />}
+        {focus.status === "pending" ? (
+          <p className="text-sm text-muted">{t("这一步尚未展示实际结果，目前只预览说明。查看说明不会执行这一步。")}</p>
+        ) : focus.status === "active" ? <><p className="text-sm text-muted">{t("数据会在这一步完成后显示")}</p><Skeleton /></> : <StageDetails stage={focus} />}
       </section>
 
       {focus.status === "failed" && turn.errorCode && (

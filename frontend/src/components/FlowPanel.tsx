@@ -1,5 +1,5 @@
 import { t } from "../preferences";
-import { useCallback, useState } from "react";
+import { useCallback, useId, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Panel } from "./Panel";
 import { StepCard } from "./flow/StepCard";
@@ -11,6 +11,7 @@ import { stageNavigation, type ViewedStage, type FlowEvent } from "../flow/turnS
 import { usePlayback, type PlaybackSettings } from "../hooks/usePlayback";
 import type { FlowLog } from "../hooks/useChat";
 import { DURATION, EASE_OUT } from "../motion";
+import type { StageId } from "../flow/protocol";
 
 const GHOST_STEPS = 4;
 
@@ -23,6 +24,7 @@ type Props = { flow: FlowLog | null; onShown?: (event: FlowEvent) => void };
 export function FlowPanel({ flow, onShown }: Props) {
   const [settings, setSettings] = useState<PlaybackSettings>({ speed: 1, stepMode: true });
   const [viewed, setViewed] = useState<ViewedStage | null>(null);
+  const currentStepId = useId();
   const flights = useStageFlights(flow?.turnId);
   const shown = useCallback(
     (event: FlowEvent) => {
@@ -33,8 +35,13 @@ export function FlowPanel({ flow, onShown }: Props) {
   );
   const { turn, waiting, next, lagging, actualFinished } = usePlayback(flow, settings, shown);
   const navigation = stageNavigation(turn, viewed);
-  const { focus, isReviewing } = navigation;
+  const { focus, isReviewing, isPreview } = navigation;
   const canNext = !!navigation.next || (waiting && !isReviewing);
+  const onSelect = (stageId: StageId) => {
+    if (!turn?.stages.some((stage) => stage.id === stageId)) return;
+    setSettings((current) => ({ ...current, stepMode: true }));
+    setViewed({ turnId: turn.turnId, stageId });
+  };
   const onPrevious = () => {
     if (!turn || !navigation.previous) return;
     setSettings((current) => ({ ...current, stepMode: true }));
@@ -49,7 +56,9 @@ export function FlowPanel({ flow, onShown }: Props) {
       next();
     }
   };
-  const nextHint = navigation.next ? t("查看已经展示过的下一步")
+  const nextHint = isPreview
+    ? navigation.next ? t("预览下一步说明，不会推进流程") : t("已经到最后一步")
+    : navigation.next ? t("查看已经展示过的下一步")
     : waiting ? t("点击后继续下一步")
     : turn?.status === "done" || turn?.status === "failed" ? t("已经到最后一步")
     : t("等待当前步骤完成");
@@ -91,14 +100,15 @@ export function FlowPanel({ flow, onShown }: Props) {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: DURATION.exit, ease: EASE_OUT }}
-                >{isReviewing ? t("正在回看已展示的步骤，不会重新执行")
+                >{isPreview ? t("正在预览步骤说明，不会推进或重新执行流程")
+                  : isReviewing ? t("正在回看已展示的步骤，不会重新执行")
                   : !settings.stepMode ? t("正在自动回放，可以点上一步停下来回看")
                   : actualFinished ? t("后端已完成，可以用上一步和下一步查看流程")
                   : t("正在按步骤展示，完成后可点下一步")}
                 </motion.p>
               )}
             </AnimatePresence>
-            {focus && <StepCard turn={turn} focus={focus} liveTokens={flow?.tokens ?? 0} />}
+            {focus && <StepCard id={currentStepId} turn={turn} focus={focus} liveTokens={flow?.tokens ?? 0} />}
           </>
         )}
         <PlaybackControls
@@ -115,7 +125,7 @@ export function FlowPanel({ flow, onShown }: Props) {
 
       <Panel title={t("完整流程")} subtitle="Full route" className="md:col-span-2 xl:col-span-1">
         {turn && turn.stages.length ? (
-          <RouteTimeline turn={turn} focus={focus} landed={flights.landed} />
+          <RouteTimeline turn={turn} focus={focus} landed={flights.landed} onSelect={onSelect} currentStepId={currentStepId} />
         ) : (
           <div className="flex flex-1 items-center justify-center px-6 text-center text-xs text-muted">{t("每一步完成后会飘到这里的正确位置 · Finished steps land here")}</div>
         )}

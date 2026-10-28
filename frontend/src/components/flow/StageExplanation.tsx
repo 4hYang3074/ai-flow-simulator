@@ -11,8 +11,12 @@ export function StageExplanation({ stage, compact = false }: { stage: StageId; c
         {t(copy.explain)}
       </p>
       <section className="flex flex-col gap-1.5">
-        <h3 className="text-sm font-semibold text-accent">{t("为什么需要这一步")}</h3>
+        <h3 className="text-sm font-semibold text-accent">{t("为什么这样设计")}</h3>
         <p className="text-sm leading-relaxed">{t(copy.why)}</p>
+      </section>
+      <section className="flex flex-col gap-1.5">
+        <h3 className="text-sm font-semibold">{t("不做这项处理会怎样")}</h3>
+        <p className="text-sm leading-relaxed">{t(copy.without)}</p>
       </section>
       <section className="flex flex-col gap-3 rounded-xl border border-border bg-surface-2 p-4">
         <h3 className="text-sm font-semibold">{t("教学示例（不是本轮实际结果）")}</h3>

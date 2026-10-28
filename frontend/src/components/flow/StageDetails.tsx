@@ -1,3 +1,4 @@
+import { memoryField, memoryValue } from "../../flow/memoryDisplay";
 import { t, pick } from "../../preferences";
 import { motion } from "motion/react";
 import {
@@ -117,7 +118,7 @@ export function StageDetails({ stage }: { stage: StageState }) {
           {saved.map((f) => (
             <li key={f.id} className="rounded-lg border border-ok/40 bg-ok/5 px-3 py-2 text-xs">
               <p>
-                <span className="text-ok">✓ {f.field}</span>：{f.value}
+                <span className="text-ok">✓ {memoryField(f.field)}</span>{pick("：", ": ")}{memoryValue(f.field, f.value)}
                 {f.revision > 1 && <span className="text-muted">{pick(` · 第 ${f.revision} 版`, ` · revision ${f.revision}`)}</span>}
               </p>
               <p className="mt-0.5 text-muted">{t("原文引用 Quote：「")}{f.quote}」</p>
